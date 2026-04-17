@@ -66,11 +66,9 @@
 </head>
 <body class="h-screen w-screen text-slate-100 flex flex-col relative tech-bg">
 
-    <!-- 加大置中 Toast 訊息提示框 (加速消失版) -->
+    <!-- 加大置中 Toast 訊息提示框 -->
     <div id="toast" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] glass-panel px-12 py-10 rounded-3xl text-white shadow-[0_0_50px_rgba(34,211,238,0.2)] border-2 border-cyan-500/50 transition-all duration-300 opacity-0 pointer-events-none scale-75 flex flex-col items-center">
-        <div id="toast-icon-container" class="mb-4">
-            <!-- Icon injected via JS -->
-        </div>
+        <div id="toast-icon-container" class="mb-4"></div>
         <span id="toast-msg" class="font-bold tracking-widest text-3xl text-center">訊息</span>
     </div>
 
@@ -84,7 +82,7 @@
     </div>
 
     <!-- 載入中 / 錯誤顯示畫面 -->
-    <div id="loading-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-950">
+    <div id="loading-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-950 pointer-events-auto">
         <div class="animate-pulse text-2xl text-cyan-400 font-medium tracking-widest flex items-center flex-col">
             <div class="flex items-center mb-4">
                 <i data-lucide="loader-2" class="w-8 h-8 mr-3 animate-spin"></i> 正在建立安全連線...
@@ -139,7 +137,6 @@
 
         <!-- ==================== 車輛資料 View ==================== -->
         <div id="view-vehicle" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
-            <!-- App Bar -->
             <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
                 <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
                     <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
@@ -152,9 +149,7 @@
                 <div class="glass-panel p-6 rounded-3xl mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div class="flex items-center text-slate-300">
                         <label class="mr-3 font-medium text-lg">選擇車輛</label>
-                        <select id="v-select" onchange="vLoadData()" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 min-w-[200px]">
-                            <!-- Options injected by JS -->
-                        </select>
+                        <select id="v-select" onchange="vLoadData()" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 min-w-[200px]"></select>
                     </div>
                     <div class="flex space-x-3">
                         <button onclick="vCancelCreate()" id="v-btn-cancel-create" class="hidden flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-500/30 rounded-xl transition font-medium">
@@ -501,7 +496,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, query, limit, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
         // 🔴 準備部署到 Github 必看！請填寫您的 Firebase 設定 🔴
@@ -534,9 +529,9 @@
         const app = Object.keys(finalConfig).length > 0 ? initializeApp(finalConfig) : null;
         const auth = app ? getAuth(app) : null;
         const db = app ? getFirestore(app) : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dispatch-system-app'; // FIXED: Declare appId properly
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dispatch-system-app';
 
-        // Firebase 資料庫路徑動態判斷 (GitHub版 將儲存在 dispatch_system_data)
+        // Firebase 資料庫路徑動態判斷
         const getColRef = (colName) => {
             if (isCanvasPreview) {
                 return collection(db, 'artifacts', appId, 'public', 'data', colName);
@@ -553,7 +548,7 @@
             }
         };
 
-        // --- 新增：本地端極速快取機制 (Offline-First) ---
+        // --- 本地端極速快取機制 ---
         const CACHE_KEY = `dispatch_system_cache_${appId}`;
         const loadLocalCache = () => {
             try {
@@ -587,7 +582,7 @@
             
             deleteTargetType: null, 
             deleteTargetId: null,
-            deleteParentId: null, // For embedded logs
+            deleteParentId: null, 
             
             mainItems: [], 
             isCreatingVehicle: false 
@@ -640,15 +635,19 @@
             }, 1200);
         };
 
+        // 詳細錯誤提示畫面 - 新增相對層級設定確保連結可點擊
         window.showFatalError = (msg) => {
             const ls = document.getElementById('loading-screen');
             ls.classList.remove('hidden');
+            ls.classList.add('pointer-events-auto');
             document.getElementById('app-container').classList.add('hidden');
             ls.innerHTML = `
-                <div class="text-rose-400 font-bold text-2xl flex flex-col items-center text-center max-w-xl bg-slate-900/80 p-10 rounded-3xl border border-rose-500/30 shadow-2xl">
-                    <i data-lucide="alert-triangle" class="w-16 h-16 mb-4 text-rose-500"></i>
-                    雲端資料庫連線失敗<br>
-                    <span class="text-base text-slate-300 mt-4 font-normal leading-relaxed">${msg}</span>
+                <div class="text-rose-400 font-bold text-2xl flex flex-col items-center text-left max-w-2xl bg-slate-900/90 p-10 rounded-3xl border border-rose-500/50 shadow-[0_0_50px_rgba(244,63,94,0.2)] pointer-events-auto relative z-50">
+                    <div class="flex items-center justify-center w-full mb-6">
+                        <i data-lucide="alert-triangle" class="w-12 h-12 text-rose-500 mr-4"></i>
+                        <span>雲端資料庫連線中斷</span>
+                    </div>
+                    <span class="text-base text-slate-300 mt-2 font-normal leading-relaxed w-full">${msg}</span>
                 </div>
             `;
             lucide.createIcons();
@@ -657,7 +656,7 @@
         async function init() {
             lucide.createIcons();
 
-            // 🚀 極速優化：啟動時直接渲染本地快取，完全不等待雲端連線，達成 0 秒開啟
+            // 🚀 極速優化：啟動時直接渲染本地快取
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
             window.renderAll();
@@ -691,13 +690,29 @@
                 return;
             }
 
-            onAuthStateChanged(auth, user => {
+            onAuthStateChanged(auth, async user => {
                 state.user = user;
-                if(user) syncData();
+                if(user) {
+                    try {
+                        // 主動測試連線探測資料庫，攔截 missing database 避免無窮迴圈
+                        await getDocs(query(getColRef('vehicles'), limit(1)));
+                        syncData();
+                    } catch (err) {
+                        const errMsg = err.message || err.code || "";
+                        if (errMsg.includes('not-found') || errMsg.includes('does not exist')) {
+                            window.showFatalError("找不到 Firestore 資料庫！<br><br>您的 Firebase 專案已成功連線，但尚未建立資料庫實體。<br><br>👉 請至 Firebase 控制台的 <b>Firestore Database</b> 頁面，點擊 <b>「Create database (建立資料庫)」</b>。<br><br><a href='https://console.firebase.google.com/project/github-car/firestore' target='_blank' class='inline-block mt-4 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition font-bold'>點此前往 Firebase 控制台設定</a>");
+                        } else if (errMsg.includes('permission-denied')) {
+                            window.showFatalError("Firestore 權限不足！<br><br>請至 Firebase 控制台的 Firestore Database > <b>Rules (規則)</b> 頁籤，將內容修改為以下並發布：<br><br><code class='bg-slate-950 p-4 block text-left text-sm text-amber-300 rounded-xl border border-slate-700 mt-2'>rules_version = '2';<br>service cloud.firestore {<br>&nbsp;&nbsp;match /databases/{database}/documents {<br>&nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if request.auth != null;<br>&nbsp;&nbsp;&nbsp;&nbsp;}<br>&nbsp;&nbsp;}<br>}</code>");
+                        } else {
+                            console.error(err);
+                            syncData();
+                        }
+                    }
+                }
             });
         }
 
-        // 極速資料同步邏輯
+        // 資料同步邏輯
         function syncData() {
             const cols = ['vehicles', 'drivers', 'vendors', 'dispatches'];
             
@@ -713,15 +728,12 @@
                         state[colName] = data;
                     }
                     
-                    saveLocalCache(); // 同步後更新本地快取
+                    saveLocalCache(); 
                     window.renderAll();
                     isFirstLoad = false;
 
                 }, (err) => {
-                    console.error(`Sync error ${colName}`, err);
-                    if (err.code === 'permission-denied') {
-                        window.showFatalError("Firestore 權限不足！<br><br>請至 Firebase 控制台的 Firestore Database > Rules 頁籤，將規則修改為：<br><code>allow read, write: if request.auth != null;</code>");
-                    }
+                    console.warn(`Sync warning ${colName}`, err);
                 });
             };
 
@@ -745,7 +757,7 @@
             if (idx >= 0) state[colName][idx] = data;
             else state[colName].push(data);
             
-            saveLocalCache(); // 立即寫入快取
+            saveLocalCache(); 
             window.renderAll();
 
             if(!db || !state.user) return;
@@ -760,7 +772,7 @@
         window.delFromDb = async (colName, id) => {
             state[colName] = state[colName].filter(x => x.id !== id);
             
-            saveLocalCache(); // 立即寫入快取
+            saveLocalCache(); 
             window.renderAll();
 
             if(!db || !state.user) return;
@@ -905,7 +917,6 @@
             if(!plate) return showToast('請填寫車牌號碼', 'error');
             const newId = document.getElementById('v-reg-id').value || `C${Date.now()}`;
             
-            // 尋找舊車輛以保留其 logs，否則給予空陣列
             const oldV = state.vehicles.find(x => x.id === newId) || {};
             
             const data = {
