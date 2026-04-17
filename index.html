@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企業派車管理系統 OS</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #020617; /* Fallback */
+        }
+
+        .tech-bg {
+            background: radial-gradient(circle at 50% -20%, #0f172a 0%, #020617 80%);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        .slide-in-right {
+            animation: slideInRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            opacity: 0.6;
+            cursor: pointer;
+        }
+
+        /* 自訂隱形卷軸 */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 防止選取文字導致的藍底色 */
+        .no-select { user-select: none; -webkit-user-select: none; }
+    </style>
+</head>
+<body class="h-screen w-screen text-slate-100 flex flex-col relative tech-bg">
+
+    <!-- 加大置中 Toast 訊息提示框 (加速消失版) -->
+    <div id="toast" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] glass-panel px-12 py-10 rounded-3xl text-white shadow-[0_0_50px_rgba(34,211,238,0.2)] border-2 border-cyan-500/50 transition-all duration-300 opacity-0 pointer-events-none scale-75 flex flex-col items-center">
+        <div id="toast-icon-container" class="mb-4">
+            <!-- Icon injected via JS -->
+        </div>
+        <span id="toast-msg" class="font-bold tracking-widest text-3xl text-center">訊息</span>
+    </div>
+
+    <!-- 頂部狀態列 -->
+    <div class="flex justify-between items-center px-6 py-2 text-slate-300 text-sm font-medium z-50 w-full pointer-events-none absolute top-0">
+        <span id="clock">00:00</span>
+        <div class="flex space-x-3 items-center">
+            <i data-lucide="wifi" class="w-4 h-4"></i>
+            <i data-lucide="battery-full" class="w-5 h-5"></i>
+        </div>
+    </div>
+
+    <!-- 載入中 / 錯誤顯示畫面 -->
+    <div id="loading-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-950">
+        <div class="animate-pulse text-2xl text-cyan-400 font-medium tracking-widest flex items-center flex-col">
+            <div class="flex items-center mb-4">
+                <i data-lucide="loader-2" class="w-8 h-8 mr-3 animate-spin"></i> 正在連線至雲端資料庫...
+            </div>
+            <span class="text-sm text-slate-500 tracking-normal font-normal">Establishing secure connection...</span>
+        </div>
+    </div>
+
+    <!-- 視圖容器 -->
+    <main id="app-container" class="flex-1 relative overflow-hidden hidden">
+        
+        <!-- ==================== 首頁 View ==================== -->
+        <div id="view-home" class="flex flex-col items-center justify-center h-full pt-12 pb-20 animate-in fade-in duration-500 relative z-10">
+            <div class="mb-20 text-center">
+                <h1 class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-widest drop-shadow-sm mb-4">
+                    派車管理系統
+                </h1>
+                <p class="text-slate-400 text-2xl tracking-wider">Corporate Fleet Dispatch OS</p>
+            </div>
+            
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-16 px-8 max-w-6xl w-full">
+                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('vehicle')">
+                    <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-xl shadow-blue-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
+                        <i data-lucide="car" class="w-16 h-16 text-white"></i>
+                    </div>
+                    <span class="text-slate-200 font-bold text-2xl tracking-wide group-hover:text-white transition-colors">車輛資料</span>
+                </div>
+                
+                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('driver')">
+                    <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center shadow-xl shadow-emerald-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
+                        <i data-lucide="user" class="w-16 h-16 text-white"></i>
+                    </div>
+                    <span class="text-slate-200 font-bold text-2xl tracking-wide group-hover:text-white transition-colors">司機人事</span>
+                </div>
+                
+                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('vendor')">
+                    <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-amber-500 to-orange-400 flex items-center justify-center shadow-xl shadow-amber-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
+                        <i data-lucide="building-2" class="w-16 h-16 text-white"></i>
+                    </div>
+                    <span class="text-slate-200 font-bold text-2xl tracking-wide group-hover:text-white transition-colors">廠商管理</span>
+                </div>
+                
+                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('dispatch')">
+                    <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center shadow-xl shadow-violet-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
+                        <i data-lucide="calendar-clock" class="w-16 h-16 text-white"></i>
+                    </div>
+                    <span class="text-slate-200 font-bold text-2xl tracking-wide group-hover:text-white transition-colors">派車排程</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 車輛資料 View ==================== -->
+        <div id="view-vehicle" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
+            <!-- App Bar -->
+            <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
+                <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
+                    <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
+                </button>
+                <h1 class="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-slate-100 tracking-wider">車輛資料管理</h1>
+                <div class="w-20"></div>
+            </div>
+            
+            <div class="max-w-6xl mx-auto w-full px-6 flex-1">
+                <div class="glass-panel p-6 rounded-3xl mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center text-slate-300">
+                        <label class="mr-3 font-medium text-lg">選擇車輛</label>
+                        <select id="v-select" onchange="vLoadData()" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 min-w-[200px]">
+                            <!-- Options injected by JS -->
+                        </select>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button onclick="vCancelCreate()" id="v-btn-cancel-create" class="hidden flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="x" class="w-5 h-5 mr-2"></i>取消新增
+                        </button>
+                        <button onclick="vCreateNew()" id="v-btn-create" class="flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="plus" class="w-5 h-5 mr-2"></i>新增車輛
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex bg-slate-900/80 p-1 rounded-2xl mb-6 border border-slate-800 transition-all duration-300" id="v-tabs-container">
+                    <button onclick="vSwitchTab('reg')" id="v-tab-reg" class="v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all bg-slate-700 text-cyan-400 shadow-md">
+                        <i data-lucide="file-text" class="w-5 h-5 mr-2"></i> 車籍資料
+                    </button>
+                    <button onclick="vSwitchTab('fuel')" id="v-tab-fuel" class="v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                        <i data-lucide="droplets" class="w-5 h-5 mr-2"></i> 加油紀錄
+                    </button>
+                    <button onclick="vSwitchTab('main')" id="v-tab-main" class="v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                        <i data-lucide="wrench" class="w-5 h-5 mr-2"></i> 保養紀錄
+                    </button>
+                </div>
+
+                <div class="glass-panel rounded-3xl p-8 border border-white/10 shadow-2xl relative">
+                    <!-- 車籍內容 -->
+                    <div id="v-content-reg" class="space-y-8">
+                        <input type="hidden" id="v-reg-id">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 relative z-10">
+                            <div><label class="block text-sm text-slate-400 mb-2">車牌號碼</label><input type="text" id="v-reg-plate" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-cyan-400 font-bold text-xl outline-none focus:border-cyan-500"></div>
+                            
+                            <div><label class="block text-sm text-slate-400 mb-2">車輛類型</label>
+                                <select id="v-reg-type" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500">
+                                    <option>貨車</option><option>小客車</option>
+                                </select>
+                            </div>
+                            
+                            <div><label class="block text-sm text-slate-400 mb-2">車輛廠牌</label><input type="text" id="v-reg-brand" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
+                            <div><label class="block text-sm text-slate-400 mb-2">車輛型號</label><input type="text" id="v-reg-model" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
+                            
+                            <div><label class="block text-sm text-slate-400 mb-2">購買年月</label><input type="date" id="v-reg-purchase-date" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
+                            <div><label class="block text-sm text-slate-400 mb-2">購買金額</label><input type="number" id="v-reg-purchase-cost" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500" placeholder="例如：1200000"></div>
+                            
+                            <div><label class="block text-sm text-slate-400 mb-2">使用油料</label>
+                                <select id="v-reg-fuelType" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500">
+                                    <option>柴油</option><option>92無鉛</option><option>95無鉛</option><option>98無鉛</option>
+                                </select>
+                            </div>
+
+                            <div><label class="block text-sm text-slate-400 mb-2">總里程數 (km)</label><input type="number" id="v-reg-mileage" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
+                            <div><label class="block text-sm text-slate-400 mb-2">是否報廢</label><select id="v-reg-scrap" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"><option>否</option><option>是</option></select></div>
+                            <div><label class="block text-sm text-slate-400 mb-2">報廢日期</label><input type="date" id="v-reg-scrapDate" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
+                            <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">備註</label><textarea id="v-reg-notes" rows="3" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 outline-none focus:border-cyan-500"></textarea></div>
+                        </div>
+                        <div class="pt-6 flex justify-end relative z-10">
+                            <button onclick="vSaveRegistration()" class="flex items-center px-8 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl hover:opacity-90 font-bold text-lg shadow-lg shadow-cyan-900/50 transition-all active:scale-95">
+                                <i data-lucide="save" class="w-6 h-6 mr-2"></i> 儲存車籍資料
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 加油內容 -->
+                    <div id="v-content-fuel" class="space-y-8 hidden">
+                        <div id="v-f-form-panel" class="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 shadow-inner transition-colors duration-300">
+                            <h4 id="v-f-form-title" class="font-bold text-lg mb-5 flex items-center text-cyan-400"><i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 登記新加油紀錄</h4>
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                                <div><label class="block text-xs text-slate-400 mb-1">日期</label><input type="date" id="v-f-date" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500"></div>
+                                <div><label class="block text-xs text-slate-400 mb-1">里程數</label><input type="number" id="v-f-mil" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500 font-bold text-cyan-200" placeholder="輸入數字"></div>
+                                <div><label class="block text-xs text-slate-400 mb-1">油料種類 (同步車籍)</label>
+                                    <select id="v-f-type" disabled class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-slate-400 outline-none opacity-80 cursor-not-allowed">
+                                        <option>柴油</option><option>92無鉛</option><option>95無鉛</option><option>98無鉛</option>
+                                    </select>
+                                </div>
+                                <div><label class="block text-xs text-slate-400 mb-1">公升數</label><input type="number" id="v-f-lit" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="公升"></div>
+                                <div><label class="block text-xs text-slate-400 mb-1">費用(元)</label><input type="number" id="v-f-cost" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="金額"></div>
+                            </div>
+                            <div class="flex justify-end space-x-3">
+                                <button id="v-f-btn-cancel" onclick="vCancelFuelEdit()" class="hidden px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition font-bold">取消修改</button>
+                                <button id="v-f-btn-save" onclick="vSaveFuel()" class="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存紀錄</button>
+                            </div>
+                        </div>
+
+                        <!-- 歷史表格 -->
+                        <div class="overflow-hidden rounded-2xl border border-slate-700">
+                            <table class="w-full text-left border-collapse">
+                                <thead><tr class="bg-slate-800/80 text-slate-300 text-sm border-b border-slate-700"><th class="p-4 font-medium">加油日期</th><th class="p-4 font-medium">加油時里程</th><th class="p-4 font-medium">油料種類</th><th class="p-4 font-medium">公升數</th><th class="p-4 font-medium">費用</th><th class="p-4 font-medium w-12"></th></tr></thead>
+                                <tbody id="v-fuel-list" class="divide-y divide-slate-800 text-slate-200">
+                                    <!-- JS Injected -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 保養內容 -->
+                    <div id="v-content-main" class="space-y-8 hidden">
+                        <div id="v-m-form-panel" class="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 shadow-inner transition-colors duration-300">
+                            <h4 id="v-m-form-title" class="font-bold text-lg mb-5 flex items-center text-cyan-400"><i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 填寫新保養單</h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-5">
+                                <div><label class="block text-xs text-slate-400 mb-1">保養日期</label><input type="date" id="v-m-date" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500"></div>
+                                <div><label class="block text-xs text-slate-400 mb-1">保養目的</label><input type="text" id="v-m-purp" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="例：五千定保"></div>
+                                <div><label class="block text-xs text-slate-400 mb-1">保養車廠</label><input type="text" id="v-m-garage" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="車廠名稱"></div>
+                                <div><label class="block text-xs text-slate-400 mb-1">是否更換零件</label><select id="v-m-part" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500"><option>否</option><option>是</option></select></div>
+                                <div><label class="block text-xs text-slate-400 mb-1">保養時里程</label><input type="number" id="v-m-mil" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="里程"></div>
+                                <div class="col-span-3"><label class="block text-xs text-slate-400 mb-1">車廠建議事項</label><input type="text" id="v-m-sug" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="下次注意事項"></div>
+                            </div>
+                            
+                            <div class="col-span-2 md:col-span-4 bg-slate-900/60 border border-slate-600/50 rounded-xl p-5 mb-5 shadow-inner">
+                                <div class="flex justify-between items-center mb-4">
+                                    <label class="text-sm text-cyan-400 font-bold tracking-wider flex items-center"><i data-lucide="clipboard-list" class="w-4 h-4 mr-2"></i> 更換明細與報價清單</label>
+                                </div>
+                                
+                                <div class="flex items-center space-x-3 mb-4 bg-slate-800/80 p-2 rounded-lg border border-slate-600">
+                                    <input type="text" id="v-m-new-item-name" placeholder="輸入零件或保養項目名稱..." class="flex-1 bg-transparent border-none p-2 text-white outline-none focus:ring-0">
+                                    <input type="number" id="v-m-new-item-price" placeholder="單項金額" class="w-32 bg-slate-900/80 border border-slate-600 rounded-md p-2 text-white outline-none focus:border-cyan-500 text-right">
+                                    <button onclick="vAddMainItem()" class="text-cyan-400 hover:text-white bg-cyan-500/20 hover:bg-cyan-500/40 p-2 border border-cyan-500/50 rounded-lg transition-colors flex items-center"><i data-lucide="plus" class="w-5 h-5 mr-1"></i> 新增</button>
+                                </div>
+                                
+                                <hr class="border-slate-700/80 mb-4 border-dashed">
+                                
+                                <div id="v-m-items-list" class="space-y-3 mb-4">
+                                    <!-- Items injected via JS -->
+                                </div>
+                                
+                                <div class="text-right border-t border-slate-700/80 pt-4 flex justify-between items-end">
+                                    <span class="text-slate-400 font-medium">共 <span id="v-m-total-count" class="text-cyan-400 font-bold text-xl px-1">0</span> 項</span>
+                                    <div>
+                                        <span class="text-slate-400 text-sm mb-1">總計金額</span>
+                                        <span class="text-3xl font-bold text-amber-400 tracking-wider ml-3">$ <span id="v-m-total-cost">0</span></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end space-x-3">
+                                <button id="v-m-btn-cancel" onclick="vCancelMainEdit()" class="hidden px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition font-bold">取消修改</button>
+                                <button id="v-m-btn-save" onclick="vSaveMain()" class="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存保養單</button>
+                            </div>
+                        </div>
+
+                        <!-- 歷史表格 -->
+                        <div class="overflow-hidden rounded-2xl border border-slate-700">
+                            <table class="w-full text-left border-collapse">
+                                <thead><tr class="bg-slate-800/80 text-slate-300 text-sm border-b border-slate-700"><th class="p-4 font-medium">日期</th><th class="p-4 font-medium">目的</th><th class="p-4 font-medium">車廠</th><th class="p-4 font-medium text-center">換零件</th><th class="p-4 font-medium">內容明細</th><th class="p-4 font-medium">總額</th><th class="p-4 font-medium">里程</th><th class="p-4 font-medium">建議事項</th><th class="p-4 font-medium w-12"></th></tr></thead>
+                                <tbody id="v-main-list" class="divide-y divide-slate-800 text-slate-200">
+                                    <!-- JS Injected -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 司機資料 View ==================== -->
+        <div id="view-driver" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
+            <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
+                <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
+                    <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
+                </button>
+                <h1 class="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-slate-100 tracking-wider">司機人事資料</h1>
+                <div class="w-20"></div>
+            </div>
+            
+            <div class="max-w-4xl mx-auto w-full px-6 flex-1">
+                <div class="glass-panel p-6 rounded-3xl mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center text-slate-300">
+                        <label class="mr-3 font-medium text-lg">選取人員</label>
+                        <select id="d-select" onchange="dLoadData()" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 min-w-[200px]"></select>
+                    </div>
+                    <button onclick="dCreateNew()" class="flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl transition font-medium">
+                        <i data-lucide="plus" class="w-5 h-5 mr-2"></i>新進人員
+                    </button>
+                </div>
+
+                <div class="glass-panel rounded-3xl border border-white/10 shadow-2xl p-8">
+                    <input type="hidden" id="d-id">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        <div><label class="block text-sm text-slate-400 mb-2">姓名</label><input type="text" id="d-name" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-emerald-400 font-bold text-xl outline-none focus:border-emerald-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">性別</label><select id="d-gender" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"><option>男</option><option>女</option></select></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">所屬單位</label><input type="text" id="d-dept" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">手機號碼</label><input type="text" id="d-phone" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">代理人</label><input type="text" id="d-deputy" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">其他備註</label><input type="text" id="d-other" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"></div>
+                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">相關持有執照</label><textarea id="d-lic" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 outline-none focus:border-emerald-500" rows="2"></textarea></div>
+                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">疾病史記錄</label><textarea id="d-med" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 outline-none focus:border-emerald-500" rows="2"></textarea></div>
+                    </div>
+                    <div class="pt-8 flex justify-end">
+                        <button onclick="dSave()" class="flex items-center px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:opacity-90 font-bold text-lg shadow-lg shadow-emerald-900/50 transition-all active:scale-95">
+                            <i data-lucide="save" class="w-6 h-6 mr-2"></i> 儲存人事資料
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 廠商資料 View ==================== -->
+        <div id="view-vendor" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
+            <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
+                <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
+                    <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
+                </button>
+                <h1 class="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-slate-100 tracking-wider">合作廠商管理</h1>
+                <div class="w-20"></div>
+            </div>
+            
+            <div class="max-w-4xl mx-auto w-full px-6 flex-1">
+                <div class="glass-panel p-6 rounded-3xl mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center text-slate-300">
+                        <label class="mr-3 font-medium text-lg">找尋廠商</label>
+                        <select id="ven-select" onchange="venLoadData()" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 min-w-[250px]"></select>
+                    </div>
+                    <button onclick="venCreateNew()" class="flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-xl transition font-medium">
+                        <i data-lucide="plus" class="w-5 h-5 mr-2"></i>新增廠商
+                    </button>
+                </div>
+
+                <div class="glass-panel rounded-3xl border border-white/10 shadow-2xl p-8">
+                    <input type="hidden" id="ven-id">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">廠商名稱</label><input type="text" id="ven-name" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-2xl font-bold text-amber-400 outline-none focus:border-amber-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">廠商加工性質</label><input type="text" id="ven-nature" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">負責人</label><input type="text" id="ven-owner" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">聯絡人</label><input type="text" id="ven-contact" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">傳真</label><input type="text" id="ven-fax" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">電話 1</label><input type="text" id="ven-p1" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
+                        <div><label class="block text-sm text-slate-400 mb-2">電話 2</label><input type="text" id="ven-p2" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
+                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">地址 1</label><input type="text" id="ven-a1" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
+                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">地址 2</label><input type="text" id="ven-a2" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
+                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">備註</label><textarea id="ven-notes" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 outline-none focus:border-amber-500" rows="2"></textarea></div>
+                    </div>
+                    <div class="pt-8 flex justify-end">
+                        <button onclick="venSave()" class="flex items-center px-8 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:opacity-90 font-bold text-lg shadow-lg shadow-amber-900/50 transition-all active:scale-95">
+                            <i data-lucide="save" class="w-6 h-6 mr-2"></i> 儲存廠商資料
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 派車排程 View ==================== -->
+        <div id="view-dispatch" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
+            <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
+                <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
+                    <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
+                </button>
+                <h1 class="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-slate-100 tracking-wider">派車排程月曆</h1>
+                <div class="w-20"></div>
+            </div>
+            
+            <div class="max-w-[1400px] mx-auto w-full px-6 flex-1 grid grid-cols-1 xl:grid-cols-4 gap-8">
+                <!-- 左側：表單區塊 -->
+                <div class="xl:col-span-1 space-y-6">
+                    <div id="disp-form-panel" class="p-8 rounded-3xl border shadow-2xl transition-all glass-panel border-white/10">
+                        <h3 id="disp-form-title" class="font-bold text-2xl mb-6 border-b border-slate-700/50 pb-4 flex items-center text-slate-100">
+                            <i data-lucide="calendar-clock" class="w-6 h-6 mr-3 text-violet-400"></i> 登記派車
+                        </h3>
+                        <div class="space-y-6">
+                            <input type="hidden" id="disp-id">
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-2">1. 選擇司機</label>
+                                <select id="disp-driver" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500"></select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-2">2. 派車日期</label>
+                                <input type="date" id="disp-date" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm text-slate-400 mb-2">開始時間</label>
+                                    <input type="time" id="disp-start" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-slate-400 mb-2">結束時間</label>
+                                    <input type="time" id="disp-end" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
+                                </div>
+                            </div>
+                            <div class="bg-slate-800/50 p-4 rounded-2xl text-center border border-slate-700/50">
+                                <span class="text-slate-400 text-sm">排定時長</span>
+                                <div class="text-violet-400 font-bold text-3xl mt-1"><span id="disp-hours">2.0</span> <span class="text-lg text-slate-500">h</span></div>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-2">3. 目的地 (廠商)</label>
+                                <select id="disp-vendor" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500"></select>
+                            </div>
+                            
+                            <div class="pt-2 flex flex-col space-y-3">
+                                <button onclick="dispSave()" id="disp-save-btn" class="w-full font-bold text-lg py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-purple-900/50">
+                                    送出排程
+                                </button>
+                                <button onclick="dispCancelEdit()" id="disp-cancel-btn" class="hidden w-full bg-slate-800 text-slate-300 font-bold py-3.5 rounded-xl hover:bg-slate-700 transition">
+                                    取消修改
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右側：月曆 -->
+                <div class="xl:col-span-3 glass-panel rounded-3xl shadow-2xl border border-white/10 flex flex-col min-h-[750px] relative overflow-hidden">
+                    <div class="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-900/30 z-10">
+                        <button onclick="calPrevMonth()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-full transition"><i data-lucide="chevron-left" class="w-6 h-6 text-slate-300"></i></button>
+                        <h2 id="cal-title" class="text-2xl font-bold text-slate-100 flex items-center tracking-wider">
+                            YYYY 年 MM 月
+                        </h2>
+                        <button onclick="calNextMonth()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-full transition"><i data-lucide="chevron-right" class="w-6 h-6 text-slate-300"></i></button>
+                    </div>
+
+                    <div class="flex-1 p-6 flex flex-col z-10">
+                        <div class="grid grid-cols-7 gap-3 text-center font-bold text-sm mb-4">
+                            <div class="uppercase tracking-widest text-rose-400">日</div>
+                            <div class="uppercase tracking-widest text-slate-400">一</div>
+                            <div class="uppercase tracking-widest text-slate-400">二</div>
+                            <div class="uppercase tracking-widest text-slate-400">三</div>
+                            <div class="uppercase tracking-widest text-slate-400">四</div>
+                            <div class="uppercase tracking-widest text-slate-400">五</div>
+                            <div class="uppercase tracking-widest text-rose-400">六</div>
+                        </div>
+                        <div id="cal-grid" class="grid grid-cols-7 gap-3 flex-1 auto-rows-fr">
+                            <!-- JS Injected -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 共用 Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel border border-slate-600 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300" id="confirm-modal-inner">
+            <div class="p-6 flex items-center border-b border-slate-700/50">
+                <i data-lucide="alert-circle" class="text-rose-500 w-8 h-8 mr-3"></i>
+                <h3 class="text-xl font-bold text-slate-100">確認刪除</h3>
+            </div>
+            <div class="p-6 text-slate-300 text-lg leading-relaxed">
+                您確定要移除這筆資料嗎？刪除後將無法復原。
+            </div>
+            <div class="bg-slate-900/50 p-4 flex justify-end space-x-4">
+                <button onclick="closeModal()" class="px-6 py-2.5 text-slate-300 hover:bg-slate-800 rounded-xl transition font-medium">取消</button>
+                <button onclick="executeDelete()" class="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition shadow-lg shadow-rose-900/50 font-medium">確認刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 🔴 準備部署到 Github 必看！請填寫您的 Firebase 設定 🔴
+        // ==========================================
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyBP4iJdYf4Y3Q1NxX2p4853VQzp1lEk5Kw",
+            authDomain: "github-car.firebaseapp.com",
+            projectId: "github-car",
+            storageBucket: "github-car.firebasestorage.app",
+            messagingSenderId: "742052661752",
+            appId: "1:742052661752:web:ef56807ea5b31282f82e0d",
+            measurementId: "G-M0291K772X"
+        };
+
+        // 自動判斷是否為預覽環境或 Github 正式環境
+        const isCustomConfigValid = myFirebaseConfig.apiKey && myFirebaseConfig.apiKey !== "請在此填寫您的 apiKey" && !myFirebaseConfig.apiKey.includes("請在此");
+        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        let finalConfig = {};
+        let isCanvasPreview = false;
+
+        if (isCustomConfigValid) {
+            finalConfig = myFirebaseConfig;
+        } else if (typeof __firebase_config !== 'undefined') {
+            try {
+                finalConfig = typeof firebaseConfigStr === 'string' ? JSON.parse(firebaseConfigStr) : firebaseConfigStr;
+                if (Object.keys(finalConfig).length > 0) isCanvasPreview = true;
+            } catch(e) { console.warn("Firebase parse error"); }
+        }
+
+        const app = Object.keys(finalConfig).length > 0 ? initializeApp(finalConfig) : null;
+        const auth = app ? getAuth(app) : null;
+        const db = app ? getFirestore(app) : null;
+
+        // Firebase 資料庫路徑動態判斷 (GitHub版 將儲存在 dispatch_system_data)
+        const getColRef = (colName) => {
+            if (isCanvasPreview) {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                return collection(db, 'artifacts', appId, 'public', 'data', colName);
+            } else {
+                return collection(db, 'dispatch_system_data', 'v1', colName);
+            }
+        };
+
+        const getDocRef = (colName, id) => {
+            if (isCanvasPreview) {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                return doc(db, 'artifacts', appId, 'public', 'data', colName, id);
+            } else {
+                return doc(db, 'dispatch_system_data', 'v1', colName, id);
+            }
+        };
+
+        // Global State
+        window.state = {
+            user: null,
+            vehicles: [],
+            drivers: [],
+            vendors: [],
+            fuelLogs: [],
+            maintenanceLogs: [],
+            dispatches: [],
+            currentMonth: new Date(),
+            
+            editingDispatchId: null,
+            editingFuelId: null,
+            editingMainId: null,
+            
+            deleteTargetType: null, 
+            deleteTargetId: null,
+            
+            mainItems: [], 
+            isCreatingVehicle: false 
+        };
+
+        const eventColors = ['bg-cyan-600', 'bg-blue-600', 'bg-indigo-600', 'bg-violet-600', 'bg-fuchsia-600'];
+
+        const initialDrivers = [
+            { id: 'D001', name: '王大明', gender: '男', department: '物流一部', phone: '0912-345-678', deputy: '李小華', licenses: '職業大客車', medical: '無', other: '優良' },
+            { id: 'D002', name: '李小華', gender: '女', department: '物流二部', phone: '0987-654-321', deputy: '王大明', licenses: '職業小客車', medical: '無', other: '' }
+        ];
+        const initialVendors = [
+            { id: 'V001', name: '永續科技', nature: '零件', address1: '信義區', address2: '', phone1: '02-2345-6789', phone2: '', fax: '', owner: '張', contact: '陳', notes: '' }
+        ];
+        const initialVehicles = [
+            { id: 'C001', type: '貨車', plate: 'ABC-1234', brand: 'Toyota', model: 'Hino 300', purchaseDate: '2020-05-15', purchaseCost: 1200000, fuelType: '柴油', isScrapped: '否', scrapDate: '', totalMileage: 150000, notes: '' }
+        ];
+
+        window.switchView = (viewId) => {
+            document.querySelectorAll('#app-container > div').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            
+            if(viewId === 'vehicle') window.vRenderSelect();
+            if(viewId === 'driver') window.dRenderSelect();
+            if(viewId === 'vendor') window.venRenderSelect();
+            if(viewId === 'dispatch') window.dispRenderSelectors();
+        };
+
+        window.showToast = (msg, type = 'success') => {
+            const t = document.getElementById('toast');
+            const iconContainer = document.getElementById('toast-icon-container');
+            document.getElementById('toast-msg').innerText = msg;
+
+            if (type === 'error') {
+                iconContainer.innerHTML = '<i data-lucide="alert-triangle" class="w-20 h-20 text-rose-400"></i>';
+                t.classList.replace('border-cyan-500/50', 'border-rose-500/50');
+                t.classList.replace('shadow-[0_0_50px_rgba(34,211,238,0.2)]', 'shadow-[0_0_50px_rgba(244,63,94,0.2)]');
+            } else {
+                iconContainer.innerHTML = '<i data-lucide="check-circle-2" class="w-20 h-20 text-cyan-400"></i>';
+                t.classList.replace('border-rose-500/50', 'border-cyan-500/50');
+                t.classList.replace('shadow-[0_0_50px_rgba(244,63,94,0.2)]', 'shadow-[0_0_50px_rgba(34,211,238,0.2)]');
+            }
+            lucide.createIcons();
+
+            t.classList.remove('opacity-0', 'scale-75', 'pointer-events-none');
+            t.classList.add('opacity-100', 'scale-100');
+            setTimeout(() => {
+                t.classList.remove('opacity-100', 'scale-100');
+                t.classList.add('opacity-0', 'scale-75', 'pointer-events-none');
+            }, 1200);
+        };
+
+        window.showFatalError = (msg) => {
+            const ls = document.getElementById('loading-screen');
+            ls.classList.remove('hidden');
+            document.getElementById('app-container').classList.add('hidden');
+            ls.innerHTML = `
+                <div class="text-rose-400 font-bold text-2xl flex flex-col items-center text-center max-w-xl bg-slate-900/80 p-10 rounded-3xl border border-rose-500/30 shadow-2xl">
+                    <i data-lucide="alert-triangle" class="w-16 h-16 mb-4 text-rose-500"></i>
+                    雲端資料庫連線失敗<br>
+                    <span class="text-base text-slate-300 mt-4 font-normal leading-relaxed">${msg}</span>
+                </div>
+            `;
+            lucide.createIcons();
+        };
+
+        async function init() {
+            lucide.createIcons();
+            
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').innerText = now.toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
+            }, 1000);
+
+            if (!app) {
+                window.showFatalError("未偵測到有效的 Firebase 設定！<br><br>請於程式碼最下方的 <b>myFirebaseConfig</b> 填入您自己的 apiKey 等資訊，才能部署至 GitHub。");
+                return;
+            }
+
+            try {
+                if (isCanvasPreview && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    // 平台預覽環境，使用自訂 Token
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    // GitHub 等外部環境，強制使用匿名登入
+                    await signInAnonymously(auth);
+                    console.log("✅ 成功以匿名身份登入 Firebase");
+                }
+            } catch (e) { 
+                console.error("Firebase Auth Error:", e); 
+                if (e.code === 'auth/operation-not-allowed') {
+                    window.showFatalError("Firebase 驗證失敗！<br><br>您必須到 Firebase 控制台的 Authentication > Sign-in method 頁面，<b>手動啟用「匿名 (Anonymous)」登入功能</b>。");
+                } else if (e.code === 'auth/invalid-api-key') {
+                    window.showFatalError("API Key 錯誤！<br><br>請確認您填入的 myFirebaseConfig 的 apiKey 是否正確。");
+                } else {
+                    window.showFatalError("驗證失敗: " + e.message);
+                }
+                return;
+            }
+
+            onAuthStateChanged(auth, user => {
+                state.user = user;
+                if(user) syncData();
+            });
+        }
+
+        function syncData() {
+            const cols = ['vehicles', 'drivers', 'vendors', 'fuelLogs', 'maintenanceLogs', 'dispatches'];
+            let loadedCount = 0;
+            
+            const checkLoaded = () => {
+                loadedCount++;
+                if (loadedCount === cols.length) {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('app-container').classList.remove('hidden');
+                    window.renderAll();
+                }
+            };
+
+            const setupSync = (colName, initData) => {
+                let isFirstLoad = true;
+                onSnapshot(getColRef(colName), snap => {
+                    const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                    
+                    if (data.length === 0 && initData && isFirstLoad) {
+                        // 初始化資料
+                        initData.forEach(item => setDoc(getDocRef(colName, item.id), item));
+                    } else {
+                        state[colName] = data;
+                        window.renderAll();
+                    }
+                    isFirstLoad = false;
+                    if(loadedCount < cols.length) checkLoaded();
+                }, (err) => {
+                    console.error(`Sync error ${colName}`, err);
+                    if (err.code === 'permission-denied') {
+                        window.showFatalError("Firestore 權限不足！<br><br>請至 Firebase 控制台的 Firestore Database > Rules 頁籤，將規則修改為：<br><code>allow read, write: if request.auth != null;</code>");
+                    } else {
+                        if(loadedCount < cols.length) checkLoaded();
+                    }
+                });
+            };
+
+            setupSync('vehicles', initialVehicles);
+            setupSync('drivers', initialDrivers);
+            setupSync('vendors', initialVendors);
+            setupSync('fuelLogs', null);
+            setupSync('maintenanceLogs', null);
+            setupSync('dispatches', null);
+        }
+
+        window.renderAll = () => {
+            if(document.getElementById('v-select')) window.vRenderSelect();
+            if(document.getElementById('d-select')) window.dRenderSelect();
+            if(document.getElementById('ven-select')) window.venRenderSelect();
+            if(document.getElementById('disp-driver')) window.dispRenderSelectors();
+            window.renderCalendar();
+            lucide.createIcons();
+        };
+
+        // 樂觀更新機制：優先更新畫面，避免等待網路延遲
+        window.saveToDb = async (colName, data) => {
+            const idx = state[colName].findIndex(x => x.id === data.id);
+            if (idx >= 0) state[colName][idx] = data;
+            else state[colName].push(data);
+            
+            window.renderAll();
+
+            if(!db || !state.user) return;
+            try { 
+                await setDoc(getDocRef(colName, data.id), data); 
+            } catch(e) { 
+                console.error('DB save error', e); 
+                window.showToast('雲端儲存失敗，請檢查權限設定', 'error'); 
+            }
+        };
+
+        window.delFromDb = async (colName, id) => {
+            state[colName] = state[colName].filter(x => x.id !== id);
+            window.renderAll();
+
+            if(!db || !state.user) return;
+            try { 
+                await deleteDoc(getDocRef(colName, id)); 
+            } catch(e) { 
+                console.error('DB delete error', e); 
+                window.showToast('雲端刪除失敗，請檢查權限設定', 'error'); 
+            }
+        };
+
+        // --- Vehicle Logic ---
+        window.vSwitchTab = (tab) => {
+            if(state.isCreatingVehicle && tab !== 'reg') {
+                showToast('請先完成新車籍資料儲存！', 'error');
+                return;
+            }
+            
+            ['reg', 'fuel', 'main'].forEach(t => {
+                document.getElementById(`v-content-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`v-tab-${t}`);
+                btn.className = `v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all ${state.isCreatingVehicle ? 'opacity-50 cursor-not-allowed' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`;
+            });
+            
+            document.getElementById(`v-content-${tab}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`v-tab-${tab}`);
+            activeBtn.className = "v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all bg-slate-700 text-cyan-400 shadow-md";
+        };
+
+        window.vRenderSelect = (forceId = null) => {
+            const sel = document.getElementById('v-select');
+            let curr = forceId || sel.value;
+            if (state.isCreatingVehicle) curr = '';
+            
+            sel.innerHTML = state.vehicles.map(v => `<option value="${v.id}">${v.plate} (${v.brand})</option>`).join('');
+            if(curr && state.vehicles.some(v=>v.id===curr)) sel.value = curr;
+            else if(state.vehicles.length && !state.isCreatingVehicle) sel.value = state.vehicles[0].id;
+            
+            window.vLoadData();
+        };
+
+        window.vLoadData = () => {
+            const id = document.getElementById('v-select').value;
+            const v = state.vehicles.find(x => x.id === id) || {};
+            document.getElementById('v-reg-id').value = v.id || '';
+            document.getElementById('v-reg-plate').value = v.plate || '';
+            document.getElementById('v-reg-type').value = v.type || '貨車';
+            document.getElementById('v-reg-brand').value = v.brand || '';
+            document.getElementById('v-reg-model').value = v.model || '';
+            
+            document.getElementById('v-reg-purchase-date').value = v.purchaseDate || '';
+            document.getElementById('v-reg-purchase-cost').value = v.purchaseCost || '';
+            
+            document.getElementById('v-reg-fuelType').value = v.fuelType || '柴油';
+            document.getElementById('v-reg-mileage').value = v.totalMileage || '';
+            document.getElementById('v-reg-scrap').value = v.isScrapped || '否';
+            document.getElementById('v-reg-scrapDate').value = v.scrapDate || '';
+            document.getElementById('v-reg-notes').value = v.notes || '';
+
+            document.getElementById('v-f-mil').value = v.totalMileage || '';
+            document.getElementById('v-f-type').value = v.fuelType || '柴油';
+            window.vCancelFuelEdit();
+
+            document.getElementById('v-m-mil').value = v.totalMileage || '';
+            window.initMainItems();
+            window.vCancelMainEdit();
+
+            const fLogs = state.fuelLogs.filter(x => x.vehicleId === id);
+            document.getElementById('v-fuel-list').innerHTML = fLogs.length ? fLogs.map(l => 
+                `<tr onclick="vEditFuel('${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                    <td class="p-4">${l.date}</td>
+                    <td class="p-4">${l.preMileage}</td>
+                    <td class="p-4">${l.type}</td>
+                    <td class="p-4">${l.liters} L</td>
+                    <td class="p-4 text-cyan-400 font-medium">$ ${l.cost}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="openDeleteModal(event, 'fuelLogs', '${l.id}')" class="text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>`
+            ).join('') : `<tr><td colspan="6" class="p-8 text-center text-slate-500">尚無紀錄</td></tr>`;
+
+            const mLogs = state.maintenanceLogs.filter(x => x.vehicleId === id);
+            document.getElementById('v-main-list').innerHTML = mLogs.length ? mLogs.map(l => {
+                let partsHtml = '-';
+                if (l.items && Array.isArray(l.items)) {
+                    partsHtml = l.items.map(i => `${i.name} ($${i.price})`).join('<br>');
+                } else if (l.details) {
+                    partsHtml = l.details;
+                }
+                const costHtml = l.totalCost ? `<span class="text-amber-400 font-bold">$${l.totalCost}</span>` : '-';
+                return `<tr onclick="vEditMain('${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                    <td class="p-4 whitespace-nowrap">${l.date}</td>
+                    <td class="p-4">${l.purpose}</td>
+                    <td class="p-4">${l.garage}</td>
+                    <td class="p-4 text-center">${l.changedParts}</td>
+                    <td class="p-4 text-sm">${partsHtml}</td>
+                    <td class="p-4">${costHtml}</td>
+                    <td class="p-4">${l.preMileage}</td>
+                    <td class="p-4 text-amber-400">${l.suggestion}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="openDeleteModal(event, 'maintenanceLogs', '${l.id}')" class="text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>`;
+            }).join('') : `<tr><td colspan="9" class="p-8 text-center text-slate-500">尚無保養紀錄</td></tr>`;
+            
+            lucide.createIcons();
+        };
+
+        window.vCreateNew = () => {
+            state.isCreatingVehicle = true;
+            document.getElementById('v-select').value = '';
+            document.getElementById('v-reg-id').value = '';
+            document.getElementById('v-reg-plate').value = '';
+            document.getElementById('v-reg-type').value = '貨車';
+            document.getElementById('v-reg-brand').value = '';
+            document.getElementById('v-reg-model').value = '';
+            document.getElementById('v-reg-purchase-date').value = '';
+            document.getElementById('v-reg-purchase-cost').value = '';
+            document.getElementById('v-reg-fuelType').value = '柴油';
+            document.getElementById('v-reg-mileage').value = '';
+            document.getElementById('v-reg-scrap').value = '否';
+            document.getElementById('v-reg-scrapDate').value = '';
+            document.getElementById('v-reg-notes').value = '';
+            
+            document.getElementById('v-btn-cancel-create').classList.remove('hidden');
+            document.getElementById('v-btn-create').classList.add('hidden');
+            
+            window.vSwitchTab('reg');
+        };
+
+        window.vCancelCreate = () => {
+            state.isCreatingVehicle = false;
+            document.getElementById('v-btn-cancel-create').classList.add('hidden');
+            document.getElementById('v-btn-create').classList.remove('hidden');
+            
+            document.getElementById('v-tab-fuel').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('v-tab-main').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            window.vRenderSelect();
+        };
+
+        window.vSaveRegistration = () => {
+            const plate = document.getElementById('v-reg-plate').value;
+            if(!plate) return showToast('請填寫車牌號碼', 'error');
+            const newId = document.getElementById('v-reg-id').value || `C${Date.now()}`;
+            const data = {
+                id: newId,
+                plate, 
+                type: document.getElementById('v-reg-type').value,
+                brand: document.getElementById('v-reg-brand').value,
+                model: document.getElementById('v-reg-model').value,
+                purchaseDate: document.getElementById('v-reg-purchase-date').value,
+                purchaseCost: document.getElementById('v-reg-purchase-cost').value,
+                fuelType: document.getElementById('v-reg-fuelType').value,
+                totalMileage: document.getElementById('v-reg-mileage').value,
+                isScrapped: document.getElementById('v-reg-scrap').value,
+                scrapDate: document.getElementById('v-reg-scrapDate').value,
+                notes: document.getElementById('v-reg-notes').value
+            };
+            
+            state.isCreatingVehicle = false;
+            
+            const sel = document.getElementById('v-select');
+            if(!Array.from(sel.options).some(o => o.value === newId)) {
+                sel.add(new Option('temp', newId));
+            }
+            sel.value = newId;
+
+            window.saveToDb('vehicles', data);
+            
+            document.getElementById('v-btn-cancel-create').classList.add('hidden');
+            document.getElementById('v-btn-create').classList.remove('hidden');
+            document.getElementById('v-tab-fuel').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('v-tab-main').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            showToast('車籍資料已成功儲存！');
+        };
+
+        window.vEditFuel = (id) => {
+            const l = state.fuelLogs.find(x => x.id === id);
+            if(!l) return;
+            state.editingFuelId = id;
+            document.getElementById('v-f-date').value = l.date;
+            document.getElementById('v-f-mil').value = l.preMileage;
+            document.getElementById('v-f-type').value = l.type;
+            document.getElementById('v-f-lit').value = l.liters;
+            document.getElementById('v-f-cost').value = l.cost;
+            
+            document.getElementById('v-f-form-panel').classList.replace('bg-slate-800/40', 'bg-amber-900/30');
+            document.getElementById('v-f-form-panel').classList.replace('border-slate-700/50', 'border-amber-500/50');
+            document.getElementById('v-f-form-title').innerHTML = `<i data-lucide="edit" class="w-5 h-5 mr-2"></i> ✎ 正在修改加油紀錄`;
+            document.getElementById('v-f-form-title').classList.replace('text-cyan-400', 'text-amber-400');
+            document.getElementById('v-f-btn-cancel').classList.remove('hidden');
+            document.getElementById('v-f-btn-save').innerHTML = `<i data-lucide="save" class="w-5 h-5 mr-2"></i> 儲存修改`;
+            document.getElementById('v-f-btn-save').className = "flex items-center px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-amber-900/50";
+            lucide.createIcons();
+            
+            document.getElementById('view-vehicle').scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.vCancelFuelEdit = () => {
+            state.editingFuelId = null;
+            document.getElementById('v-f-date').value = ''; 
+            document.getElementById('v-f-cost').value = '';
+            document.getElementById('v-f-lit').value = '';
+            
+            const vid = document.getElementById('v-select').value;
+            const v = state.vehicles.find(x => x.id === vid);
+            if(v) {
+                document.getElementById('v-f-mil').value = v.totalMileage || '';
+                document.getElementById('v-f-type').value = v.fuelType || '柴油';
+            }
+            
+            document.getElementById('v-f-form-panel').classList.replace('bg-amber-900/30', 'bg-slate-800/40');
+            document.getElementById('v-f-form-panel').classList.replace('border-amber-500/50', 'border-slate-700/50');
+            document.getElementById('v-f-form-title').innerHTML = `<i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 登記新加油紀錄`;
+            document.getElementById('v-f-form-title').classList.replace('text-amber-400', 'text-cyan-400');
+            document.getElementById('v-f-btn-cancel').classList.add('hidden');
+            document.getElementById('v-f-btn-save').innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認新增紀錄`;
+            document.getElementById('v-f-btn-save').className = "flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50";
+            lucide.createIcons();
+        };
+
+        window.vSaveFuel = () => {
+            const vid = document.getElementById('v-select').value;
+            if(!vid) return showToast('請先選擇或儲存車輛', 'error');
+            const date = document.getElementById('v-f-date').value;
+            const cost = Number(document.getElementById('v-f-cost').value);
+            const inputMil = Number(document.getElementById('v-f-mil').value);
+            
+            if(!date) return showToast('請填寫日期', 'error');
+            if(cost <= 0) return showToast('金額必須大於0！已取消新增。', 'error');
+            
+            const isNew = !state.editingFuelId;
+            const data = {
+                id: isNew ? Date.now().toString() : state.editingFuelId,
+                vehicleId: vid, date, cost,
+                preMileage: inputMil,
+                type: document.getElementById('v-f-type').value,
+                liters: document.getElementById('v-f-lit').value
+            };
+            
+            const v = state.vehicles.find(x => x.id === vid);
+            if (v && inputMil > Number(v.totalMileage || 0)) {
+                v.totalMileage = inputMil;
+                window.saveToDb('vehicles', v);
+                document.getElementById('v-reg-mileage').value = inputMil;
+            }
+
+            window.saveToDb('fuelLogs', data);
+            showToast(isNew ? '加油紀錄新增成功' : '加油紀錄修改成功');
+            window.vCancelFuelEdit();
+        };
+
+        window.vEditMain = (id) => {
+            const l = state.maintenanceLogs.find(x => x.id === id);
+            if(!l) return;
+            state.editingMainId = id;
+            document.getElementById('v-m-date').value = l.date;
+            document.getElementById('v-m-purp').value = l.purpose;
+            document.getElementById('v-m-garage').value = l.garage || '';
+            document.getElementById('v-m-part').value = l.changedParts || '否';
+            document.getElementById('v-m-mil').value = l.preMileage || '';
+            document.getElementById('v-m-sug').value = l.suggestion || '';
+            
+            if (l.items && Array.isArray(l.items) && l.items.length > 0) {
+                state.mainItems = [...l.items];
+            } else if (l.details) {
+                state.mainItems = [{ name: l.details, price: l.totalCost || 0 }];
+            } else {
+                state.mainItems = [];
+            }
+            window.renderMainItems();
+
+            document.getElementById('v-m-form-panel').classList.replace('bg-slate-800/40', 'bg-amber-900/30');
+            document.getElementById('v-m-form-panel').classList.replace('border-slate-700/50', 'border-amber-500/50');
+            document.getElementById('v-m-form-title').innerHTML = `<i data-lucide="edit" class="w-5 h-5 mr-2"></i> ✎ 正在修改保養紀錄`;
+            document.getElementById('v-m-form-title').classList.replace('text-cyan-400', 'text-amber-400');
+            document.getElementById('v-m-btn-cancel').classList.remove('hidden');
+            document.getElementById('v-m-btn-save').innerHTML = `<i data-lucide="save" class="w-5 h-5 mr-2"></i> 儲存修改`;
+            document.getElementById('v-m-btn-save').className = "flex items-center px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-amber-900/50";
+            lucide.createIcons();
+            
+            document.getElementById('view-vehicle').scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.vCancelMainEdit = () => {
+            state.editingMainId = null;
+            document.getElementById('v-m-date').value = ''; 
+            document.getElementById('v-m-purp').value = '';
+            document.getElementById('v-m-garage').value = '';
+            document.getElementById('v-m-sug').value = '';
+            
+            const vid = document.getElementById('v-select').value;
+            const v = state.vehicles.find(x => x.id === vid);
+            if(v) {
+                document.getElementById('v-m-mil').value = v.totalMileage || '';
+            }
+            window.initMainItems();
+
+            document.getElementById('v-m-form-panel').classList.replace('bg-amber-900/30', 'bg-slate-800/40');
+            document.getElementById('v-m-form-panel').classList.replace('border-amber-500/50', 'border-slate-700/50');
+            document.getElementById('v-m-form-title').innerHTML = `<i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 填寫新保養單`;
+            document.getElementById('v-m-form-title').classList.replace('text-amber-400', 'text-cyan-400');
+            document.getElementById('v-m-btn-cancel').classList.add('hidden');
+            document.getElementById('v-m-btn-save').innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存保養單`;
+            document.getElementById('v-m-btn-save').className = "flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50";
+            lucide.createIcons();
+        };
+
+        window.vAddMainItem = () => {
+            const name = document.getElementById('v-m-new-item-name').value;
+            const price = document.getElementById('v-m-new-item-price').value;
+            if(!name) {
+                showToast('請先填寫項目名稱', 'error');
+                return;
+            }
+            state.mainItems.push({ name, price: Number(price) || 0 });
+            document.getElementById('v-m-new-item-name').value = '';
+            document.getElementById('v-m-new-item-price').value = '';
+            window.renderMainItems();
+        };
+
+        window.removeMainItem = (idx) => {
+            state.mainItems.splice(idx, 1);
+            window.renderMainItems();
+        };
+
+        window.calcMainTotal = () => {
+            const total = state.mainItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+            document.getElementById('v-m-total-cost').innerText = total;
+            return total;
+        };
+
+        window.renderMainItems = () => {
+            const html = state.mainItems.map((item, idx) => `
+                <div class="flex items-center space-x-3 text-slate-200 bg-slate-900/40 p-2 rounded-lg">
+                    <button onclick="removeMainItem(${idx})" class="text-rose-400 hover:text-rose-300 p-2 bg-rose-500/10 rounded-md transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <span class="text-cyan-500 font-bold w-8 text-center">${idx + 1}.</span>
+                    <span class="flex-1 pl-2">${item.name}</span>
+                    <span class="w-32 text-right font-medium tracking-wider">$${item.price}</span>
+                </div>
+            `).join('');
+            document.getElementById('v-m-items-list').innerHTML = html;
+            document.getElementById('v-m-total-count').innerText = state.mainItems.length;
+            window.calcMainTotal();
+            lucide.createIcons();
+        };
+
+        window.initMainItems = () => {
+            state.mainItems = [];
+            window.renderMainItems();
+        };
+
+        window.vSaveMain = () => {
+            const vid = document.getElementById('v-select').value;
+            if(!vid) return showToast('請先選擇或儲存車輛', 'error');
+            const date = document.getElementById('v-m-date').value;
+            const purp = document.getElementById('v-m-purp').value;
+            if(!date || !purp) return showToast('請填寫日期與目的', 'error');
+            
+            const pendingName = document.getElementById('v-m-new-item-name').value;
+            if(pendingName) {
+                window.vAddMainItem();
+            }
+
+            const validItems = state.mainItems.filter(i => i.name.trim() !== '');
+            const totalCost = window.calcMainTotal();
+
+            const isNew = !state.editingMainId;
+            const data = {
+                id: isNew ? Date.now().toString() : state.editingMainId,
+                vehicleId: vid, date, purpose: purp,
+                garage: document.getElementById('v-m-garage').value,
+                changedParts: document.getElementById('v-m-part').value,
+                items: validItems,
+                totalCost: totalCost,
+                preMileage: document.getElementById('v-m-mil').value,
+                suggestion: document.getElementById('v-m-sug').value
+            };
+            window.saveToDb('maintenanceLogs', data);
+            showToast(isNew ? '保養單紀錄已新增' : '保養單修改成功');
+            window.vCancelMainEdit();
+        };
+
+        window.dRenderSelect = () => {
+            const sel = document.getElementById('d-select');
+            const curr = sel.value;
+            sel.innerHTML = state.drivers.map(d => `<option value="${d.id}">${d.name} - ${d.department}</option>`).join('');
+            if(!curr && state.drivers.length) sel.value = state.drivers[0].id;
+            else if(curr) sel.value = curr;
+            window.dLoadData();
+        };
+
+        window.dLoadData = () => {
+            const id = document.getElementById('d-select').value;
+            const d = state.drivers.find(x => x.id === id) || {};
+            document.getElementById('d-id').value = d.id || '';
+            document.getElementById('d-name').value = d.name || '';
+            document.getElementById('d-gender').value = d.gender || '男';
+            document.getElementById('d-dept').value = d.department || '';
+            document.getElementById('d-phone').value = d.phone || '';
+            document.getElementById('d-deputy').value = d.deputy || '';
+            document.getElementById('d-other').value = d.other || '';
+            document.getElementById('d-lic').value = d.licenses || '';
+            document.getElementById('d-med').value = d.medical || '';
+        };
+
+        window.dCreateNew = () => { document.getElementById('d-select').value = ''; window.dLoadData(); };
+        window.dSave = () => {
+            const name = document.getElementById('d-name').value;
+            if(!name) return showToast('請輸入司機姓名', 'error');
+            const newId = document.getElementById('d-id').value || `D${Date.now()}`;
+            const data = {
+                id: newId,
+                name, gender: document.getElementById('d-gender').value,
+                department: document.getElementById('d-dept').value,
+                phone: document.getElementById('d-phone').value,
+                deputy: document.getElementById('d-deputy').value,
+                other: document.getElementById('d-other').value,
+                licenses: document.getElementById('d-lic').value,
+                medical: document.getElementById('d-med').value,
+            };
+            
+            const sel = document.getElementById('d-select');
+            if(!Array.from(sel.options).some(o => o.value === newId)) {
+                sel.add(new Option('temp', newId));
+            }
+            sel.value = newId;
+
+            window.saveToDb('drivers', data);
+            showToast('人事資料已儲存');
+        };
+
+        window.venRenderSelect = () => {
+            const sel = document.getElementById('ven-select');
+            const curr = sel.value;
+            sel.innerHTML = state.vendors.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+            if(!curr && state.vendors.length) sel.value = state.vendors[0].id;
+            else if(curr) sel.value = curr;
+            window.venLoadData();
+        };
+        window.venLoadData = () => {
+            const id = document.getElementById('ven-select').value;
+            const v = state.vendors.find(x => x.id === id) || {};
+            document.getElementById('ven-id').value = v.id || '';
+            document.getElementById('ven-name').value = v.name || '';
+            document.getElementById('ven-nature').value = v.nature || '';
+            document.getElementById('ven-owner').value = v.owner || '';
+            document.getElementById('ven-contact').value = v.contact || '';
+            document.getElementById('ven-fax').value = v.fax || '';
+            document.getElementById('ven-p1').value = v.phone1 || '';
+            document.getElementById('ven-p2').value = v.phone2 || '';
+            document.getElementById('ven-a1').value = v.address1 || '';
+            document.getElementById('ven-a2').value = v.address2 || '';
+            document.getElementById('ven-notes').value = v.notes || '';
+        };
+        window.venCreateNew = () => { document.getElementById('ven-select').value = ''; window.venLoadData(); };
+        window.venSave = () => {
+            const name = document.getElementById('ven-name').value;
+            if(!name) return showToast('請輸入廠商名稱', 'error');
+            const newId = document.getElementById('ven-id').value || `V${Date.now()}`;
+            const data = {
+                id: newId, name,
+                nature: document.getElementById('ven-nature').value, owner: document.getElementById('ven-owner').value,
+                contact: document.getElementById('ven-contact').value, fax: document.getElementById('ven-fax').value,
+                phone1: document.getElementById('ven-p1').value, phone2: document.getElementById('ven-p2').value,
+                address1: document.getElementById('ven-a1').value, address2: document.getElementById('ven-a2').value,
+                notes: document.getElementById('ven-notes').value
+            };
+            
+            const sel = document.getElementById('ven-select');
+            if(!Array.from(sel.options).some(o => o.value === newId)) {
+                sel.add(new Option('temp', newId));
+            }
+            sel.value = newId;
+
+            window.saveToDb('vendors', data);
+            showToast('廠商資料已儲存');
+        };
+
+        window.dispRenderSelectors = () => {
+            const dSel = document.getElementById('disp-driver');
+            const vSel = document.getElementById('disp-vendor');
+            
+            if(!dSel.value) {
+                dSel.innerHTML = state.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                if(!document.getElementById('disp-date').value) document.getElementById('disp-date').value = new Date().toISOString().split('T')[0];
+                document.getElementById('disp-start').value = '09:00';
+                document.getElementById('disp-end').value = '11:00';
+                window.dispCalcTime();
+            }
+            if(!vSel.value) {
+                vSel.innerHTML = state.vendors.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+            }
+        };
+
+        window.dispCalcTime = () => {
+            const st = document.getElementById('disp-start').value;
+            const et = document.getElementById('disp-end').value;
+            if(st && et) {
+                const [sh, sm] = st.split(':').map(Number);
+                const [eh, em] = et.split(':').map(Number);
+                let diff = (eh + em/60) - (sh + sm/60);
+                if (diff < 0) diff += 24;
+                document.getElementById('disp-hours').innerText = diff.toFixed(1);
+            }
+        };
+
+        window.dispSave = () => {
+            const hours = Number(document.getElementById('disp-hours').innerText);
+            if (hours <= 0) return showToast('結束時間有誤！', 'error');
+            
+            const isNew = !state.editingDispatchId;
+            const data = {
+                id: isNew ? Date.now().toString() : state.editingDispatchId,
+                driverId: document.getElementById('disp-driver').value,
+                date: document.getElementById('disp-date').value,
+                startTime: document.getElementById('disp-start').value,
+                endTime: document.getElementById('disp-end').value,
+                hours: hours.toFixed(1),
+                vendorId: document.getElementById('disp-vendor').value,
+                color: isNew ? eventColors[state.dispatches.length % eventColors.length] : (state.dispatches.find(d=>d.id===state.editingDispatchId)?.color || eventColors[0])
+            };
+            
+            window.saveToDb('dispatches', data);
+            showToast(isNew ? '已送出排程' : '已儲存修改');
+            window.dispCancelEdit();
+        };
+
+        window.dispEdit = (id) => {
+            const d = state.dispatches.find(x => x.id === id);
+            if(!d) return;
+            state.editingDispatchId = id;
+            document.getElementById('disp-driver').value = d.driverId;
+            document.getElementById('disp-date').value = d.date;
+            document.getElementById('disp-start').value = d.startTime || '09:00';
+            document.getElementById('disp-end').value = d.endTime || '11:00';
+            document.getElementById('disp-vendor').value = d.vendorId;
+            window.dispCalcTime();
+            
+            document.getElementById('disp-form-panel').className = "p-8 rounded-3xl border shadow-2xl transition-all bg-indigo-900/40 border-indigo-500/50";
+            document.getElementById('disp-form-title').innerHTML = `<i data-lucide="edit-2" class="w-6 h-6 mr-3 text-indigo-400"></i> 修改派車排程`;
+            document.getElementById('disp-save-btn').innerText = "儲存修改";
+            document.getElementById('disp-save-btn').className = "w-full font-bold text-lg py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-indigo-900/50";
+            document.getElementById('disp-cancel-btn').classList.remove('hidden');
+            lucide.createIcons();
+            window.renderCalendar();
+        };
+
+        window.dispCancelEdit = () => {
+            state.editingDispatchId = null;
+            document.getElementById('disp-start').value = '09:00';
+            document.getElementById('disp-end').value = '11:00';
+            window.dispCalcTime();
+            
+            document.getElementById('disp-form-panel').className = "p-8 rounded-3xl border shadow-2xl transition-all glass-panel border-white/10";
+            document.getElementById('disp-form-title').innerHTML = `<i data-lucide="calendar-clock" class="w-6 h-6 mr-3 text-violet-400"></i> 登記派車`;
+            document.getElementById('disp-save-btn').innerText = "送出排程";
+            document.getElementById('disp-save-btn').className = "w-full font-bold text-lg py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-purple-900/50";
+            document.getElementById('disp-cancel-btn').classList.add('hidden');
+            lucide.createIcons();
+            window.renderCalendar();
+        };
+
+        window.calPrevMonth = () => {
+            state.currentMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() - 1, 1);
+            window.renderCalendar();
+        };
+        window.calNextMonth = () => {
+            state.currentMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() + 1, 1);
+            window.renderCalendar();
+        };
+
+        window.renderCalendar = () => {
+            const year = state.currentMonth.getFullYear();
+            const month = state.currentMonth.getMonth();
+            document.getElementById('cal-title').innerText = `${year} 年 ${month + 1} 月`;
+
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDay = new Date(year, month, 1).getDay();
+            
+            let html = '';
+            for (let i = 0; i < firstDay; i++) {
+                html += `<div class="bg-slate-800/20 rounded-2xl border border-transparent"></div>`;
+            }
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayDisps = state.dispatches.filter(d => d.date === dateStr);
+                const isToday = dateStr === todayStr;
+                const dayOfWeek = new Date(year, month, day).getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+                let cellClass = isToday ? 'border-cyan-500/50 bg-cyan-900/10 ring-1 ring-cyan-500/50' : 'border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/60';
+                let dayNumClass = isToday ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40' : (isWeekend ? 'text-rose-400' : 'text-slate-300');
+
+                let eventsHtml = dayDisps.map(d => {
+                    const drv = state.drivers.find(x => x.id === d.driverId)?.name || '未知';
+                    const ven = state.vendors.find(x => x.id === d.vendorId)?.name || '未知';
+                    const isEdit = state.editingDispatchId === d.id;
+                    const eventClass = `${d.color} ${isEdit ? 'ring-2 ring-white scale-[1.02] shadow-xl' : 'opacity-90 hover:opacity-100'}`;
+                    
+                    return `
+                        <div onclick="dispEdit('${d.id}')" class="${eventClass} text-white rounded-xl p-2 cursor-pointer transition-all group flex flex-col relative no-select">
+                            <div class="font-bold truncate text-[13px] leading-tight mb-0.5">${drv} <span class="font-normal opacity-80">(${d.hours}h)</span></div>
+                            <div class="text-[11px] truncate opacity-80 leading-tight">${ven}</div>
+                            <button onclick="openDeleteModal(event, 'dispatches', '${d.id}')" class="absolute top-1.5 right-1.5 p-1 rounded-full bg-slate-900/50 hover:bg-rose-500 opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-10">
+                                <i data-lucide="x" class="w-3 h-3 text-white"></i>
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+
+                html += `
+                    <div class="border rounded-2xl p-2.5 flex flex-col overflow-hidden transition-colors ${cellClass}">
+                        <span class="text-sm font-bold mb-2 w-8 h-8 flex items-center justify-center rounded-full ${dayNumClass}">
+                            ${day}
+                        </span>
+                        <div class="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-1">
+                            ${eventsHtml}
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('cal-grid').innerHTML = html;
+            lucide.createIcons();
+        };
+
+        window.openDeleteModal = (e, type, id) => {
+            e.stopPropagation();
+            state.deleteTargetType = type;
+            state.deleteTargetId = id;
+            
+            const modal = document.getElementById('confirm-modal');
+            const inner = document.getElementById('confirm-modal-inner');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                inner.classList.remove('scale-95');
+            }, 10);
+        };
+
+        window.closeModal = () => {
+            state.deleteTargetType = null;
+            state.deleteTargetId = null;
+            const modal = document.getElementById('confirm-modal');
+            const inner = document.getElementById('confirm-modal-inner');
+            modal.classList.add('opacity-0');
+            inner.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        };
+
+        window.executeDelete = () => {
+            if(state.deleteTargetId && state.deleteTargetType) {
+                window.delFromDb(state.deleteTargetType, state.deleteTargetId);
+                
+                if(state.deleteTargetType === 'dispatches' && state.editingDispatchId === state.deleteTargetId) window.dispCancelEdit();
+                if(state.deleteTargetType === 'fuelLogs' && state.editingFuelId === state.deleteTargetId) window.vCancelFuelEdit();
+                if(state.deleteTargetType === 'maintenanceLogs' && state.editingMainId === state.deleteTargetId) window.vCancelMainEdit();
+            }
+            window.closeModal();
+            showToast('已成功刪除紀錄');
+        };
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
