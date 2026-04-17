@@ -87,9 +87,9 @@
     <div id="loading-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-950">
         <div class="animate-pulse text-2xl text-cyan-400 font-medium tracking-widest flex items-center flex-col">
             <div class="flex items-center mb-4">
-                <i data-lucide="loader-2" class="w-8 h-8 mr-3 animate-spin"></i> 正在連線至雲端資料庫...
+                <i data-lucide="loader-2" class="w-8 h-8 mr-3 animate-spin"></i> 正在建立安全連線...
             </div>
-            <span class="text-sm text-slate-500 tracking-normal font-normal">Establishing secure connection...</span>
+            <span class="text-sm text-slate-500 tracking-normal font-normal">Establishing secure database connection...</span>
         </div>
     </div>
 
@@ -106,6 +106,7 @@
             </div>
             
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-16 px-8 max-w-6xl w-full">
+                <!-- 加大圖示與文字 -->
                 <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('vehicle')">
                     <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-xl shadow-blue-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
                         <i data-lucide="car" class="w-16 h-16 text-white"></i>
@@ -232,7 +233,7 @@
                             </div>
                             <div class="flex justify-end space-x-3">
                                 <button id="v-f-btn-cancel" onclick="vCancelFuelEdit()" class="hidden px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition font-bold">取消修改</button>
-                                <button id="v-f-btn-save" onclick="vSaveFuel()" class="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存紀錄</button>
+                                <button id="v-f-btn-save" onclick="vSaveFuel()" class="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認新增紀錄</button>
                             </div>
                         </div>
 
@@ -533,11 +534,11 @@
         const app = Object.keys(finalConfig).length > 0 ? initializeApp(finalConfig) : null;
         const auth = app ? getAuth(app) : null;
         const db = app ? getFirestore(app) : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dispatch-system-app'; // FIXED: Declare appId properly
 
         // Firebase 資料庫路徑動態判斷 (GitHub版 將儲存在 dispatch_system_data)
         const getColRef = (colName) => {
             if (isCanvasPreview) {
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 return collection(db, 'artifacts', appId, 'public', 'data', colName);
             } else {
                 return collection(db, 'dispatch_system_data', 'v1', colName);
@@ -546,22 +547,38 @@
 
         const getDocRef = (colName, id) => {
             if (isCanvasPreview) {
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 return doc(db, 'artifacts', appId, 'public', 'data', colName, id);
             } else {
                 return doc(db, 'dispatch_system_data', 'v1', colName, id);
             }
         };
 
+        // --- 新增：本地端極速快取機制 (Offline-First) ---
+        const CACHE_KEY = `dispatch_system_cache_${appId}`;
+        const loadLocalCache = () => {
+            try {
+                const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
+                return cached || {};
+            } catch(e) { return {}; }
+        };
+        const saveLocalCache = () => {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+                vehicles: window.state.vehicles,
+                drivers: window.state.drivers,
+                vendors: window.state.vendors,
+                dispatches: window.state.dispatches
+            }));
+        };
+
+        const localData = loadLocalCache();
+
         // Global State
         window.state = {
             user: null,
-            vehicles: [],
-            drivers: [],
-            vendors: [],
-            fuelLogs: [],
-            maintenanceLogs: [],
-            dispatches: [],
+            vehicles: localData.vehicles || [],
+            drivers: localData.drivers || [],
+            vendors: localData.vendors || [],
+            dispatches: localData.dispatches || [],
             currentMonth: new Date(),
             
             editingDispatchId: null,
@@ -570,6 +587,7 @@
             
             deleteTargetType: null, 
             deleteTargetId: null,
+            deleteParentId: null, // For embedded logs
             
             mainItems: [], 
             isCreatingVehicle: false 
@@ -585,7 +603,7 @@
             { id: 'V001', name: '永續科技', nature: '零件', address1: '信義區', address2: '', phone1: '02-2345-6789', phone2: '', fax: '', owner: '張', contact: '陳', notes: '' }
         ];
         const initialVehicles = [
-            { id: 'C001', type: '貨車', plate: 'ABC-1234', brand: 'Toyota', model: 'Hino 300', purchaseDate: '2020-05-15', purchaseCost: 1200000, fuelType: '柴油', isScrapped: '否', scrapDate: '', totalMileage: 150000, notes: '' }
+            { id: 'C001', type: '貨車', plate: 'ABC-1234', brand: 'Toyota', model: 'Hino 300', purchaseDate: '2020-05-15', purchaseCost: 1200000, fuelType: '柴油', isScrapped: '否', scrapDate: '', totalMileage: 150000, notes: '', fuelLogs: [], maintenanceLogs: [] }
         ];
 
         window.switchView = (viewId) => {
@@ -638,6 +656,11 @@
 
         async function init() {
             lucide.createIcons();
+
+            // 🚀 極速優化：啟動時直接渲染本地快取，完全不等待雲端連線，達成 0 秒開啟
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            window.renderAll();
             
             setInterval(() => {
                 const now = new Date();
@@ -651,10 +674,8 @@
 
             try {
                 if (isCanvasPreview && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    // 平台預覽環境，使用自訂 Token
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    // GitHub 等外部環境，強制使用匿名登入
                     await signInAnonymously(auth);
                     console.log("✅ 成功以匿名身份登入 Firebase");
                 }
@@ -676,39 +697,30 @@
             });
         }
 
+        // 極速資料同步邏輯
         function syncData() {
-            const cols = ['vehicles', 'drivers', 'vendors', 'fuelLogs', 'maintenanceLogs', 'dispatches'];
-            let loadedCount = 0;
+            const cols = ['vehicles', 'drivers', 'vendors', 'dispatches'];
             
-            const checkLoaded = () => {
-                loadedCount++;
-                if (loadedCount === cols.length) {
-                    document.getElementById('loading-screen').classList.add('hidden');
-                    document.getElementById('app-container').classList.remove('hidden');
-                    window.renderAll();
-                }
-            };
-
             const setupSync = (colName, initData) => {
                 let isFirstLoad = true;
                 onSnapshot(getColRef(colName), snap => {
                     const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                     
                     if (data.length === 0 && initData && isFirstLoad) {
-                        // 初始化資料
+                        state[colName] = initData;
                         initData.forEach(item => setDoc(getDocRef(colName, item.id), item));
                     } else {
                         state[colName] = data;
-                        window.renderAll();
                     }
+                    
+                    saveLocalCache(); // 同步後更新本地快取
+                    window.renderAll();
                     isFirstLoad = false;
-                    if(loadedCount < cols.length) checkLoaded();
+
                 }, (err) => {
                     console.error(`Sync error ${colName}`, err);
                     if (err.code === 'permission-denied') {
                         window.showFatalError("Firestore 權限不足！<br><br>請至 Firebase 控制台的 Firestore Database > Rules 頁籤，將規則修改為：<br><code>allow read, write: if request.auth != null;</code>");
-                    } else {
-                        if(loadedCount < cols.length) checkLoaded();
                     }
                 });
             };
@@ -716,8 +728,6 @@
             setupSync('vehicles', initialVehicles);
             setupSync('drivers', initialDrivers);
             setupSync('vendors', initialVendors);
-            setupSync('fuelLogs', null);
-            setupSync('maintenanceLogs', null);
             setupSync('dispatches', null);
         }
 
@@ -730,12 +740,12 @@
             lucide.createIcons();
         };
 
-        // 樂觀更新機制：優先更新畫面，避免等待網路延遲
         window.saveToDb = async (colName, data) => {
             const idx = state[colName].findIndex(x => x.id === data.id);
             if (idx >= 0) state[colName][idx] = data;
             else state[colName].push(data);
             
+            saveLocalCache(); // 立即寫入快取
             window.renderAll();
 
             if(!db || !state.user) return;
@@ -749,6 +759,8 @@
 
         window.delFromDb = async (colName, id) => {
             state[colName] = state[colName].filter(x => x.id !== id);
+            
+            saveLocalCache(); // 立即寫入快取
             window.renderAll();
 
             if(!db || !state.user) return;
@@ -816,30 +828,28 @@
             window.initMainItems();
             window.vCancelMainEdit();
 
-            const fLogs = state.fuelLogs.filter(x => x.vehicleId === id);
+            const fLogs = v.fuelLogs || [];
             document.getElementById('v-fuel-list').innerHTML = fLogs.length ? fLogs.map(l => 
-                `<tr onclick="vEditFuel('${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                `<tr onclick="vEditFuel('${id}', '${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer">
                     <td class="p-4">${l.date}</td>
                     <td class="p-4">${l.preMileage}</td>
                     <td class="p-4">${l.type}</td>
                     <td class="p-4">${l.liters} L</td>
                     <td class="p-4 text-cyan-400 font-medium">$ ${l.cost}</td>
                     <td class="p-4 text-right">
-                        <button onclick="openDeleteModal(event, 'fuelLogs', '${l.id}')" class="text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <button onclick="openDeleteModal(event, 'fuelLogs', '${l.id}', '${id}')" class="text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </td>
                 </tr>`
             ).join('') : `<tr><td colspan="6" class="p-8 text-center text-slate-500">尚無紀錄</td></tr>`;
 
-            const mLogs = state.maintenanceLogs.filter(x => x.vehicleId === id);
+            const mLogs = v.maintenanceLogs || [];
             document.getElementById('v-main-list').innerHTML = mLogs.length ? mLogs.map(l => {
                 let partsHtml = '-';
                 if (l.items && Array.isArray(l.items)) {
                     partsHtml = l.items.map(i => `${i.name} ($${i.price})`).join('<br>');
-                } else if (l.details) {
-                    partsHtml = l.details;
                 }
                 const costHtml = l.totalCost ? `<span class="text-amber-400 font-bold">$${l.totalCost}</span>` : '-';
-                return `<tr onclick="vEditMain('${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                return `<tr onclick="vEditMain('${id}', '${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer">
                     <td class="p-4 whitespace-nowrap">${l.date}</td>
                     <td class="p-4">${l.purpose}</td>
                     <td class="p-4">${l.garage}</td>
@@ -849,7 +859,7 @@
                     <td class="p-4">${l.preMileage}</td>
                     <td class="p-4 text-amber-400">${l.suggestion}</td>
                     <td class="p-4 text-right">
-                        <button onclick="openDeleteModal(event, 'maintenanceLogs', '${l.id}')" class="text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <button onclick="openDeleteModal(event, 'maintenanceLogs', '${l.id}', '${id}')" class="text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </td>
                 </tr>`;
             }).join('') : `<tr><td colspan="9" class="p-8 text-center text-slate-500">尚無保養紀錄</td></tr>`;
@@ -894,6 +904,10 @@
             const plate = document.getElementById('v-reg-plate').value;
             if(!plate) return showToast('請填寫車牌號碼', 'error');
             const newId = document.getElementById('v-reg-id').value || `C${Date.now()}`;
+            
+            // 尋找舊車輛以保留其 logs，否則給予空陣列
+            const oldV = state.vehicles.find(x => x.id === newId) || {};
+            
             const data = {
                 id: newId,
                 plate, 
@@ -906,7 +920,9 @@
                 totalMileage: document.getElementById('v-reg-mileage').value,
                 isScrapped: document.getElementById('v-reg-scrap').value,
                 scrapDate: document.getElementById('v-reg-scrapDate').value,
-                notes: document.getElementById('v-reg-notes').value
+                notes: document.getElementById('v-reg-notes').value,
+                fuelLogs: oldV.fuelLogs || [],
+                maintenanceLogs: oldV.maintenanceLogs || []
             };
             
             state.isCreatingVehicle = false;
@@ -927,8 +943,10 @@
             showToast('車籍資料已成功儲存！');
         };
 
-        window.vEditFuel = (id) => {
-            const l = state.fuelLogs.find(x => x.id === id);
+        window.vEditFuel = (vid, id) => {
+            const v = state.vehicles.find(x => x.id === vid);
+            if(!v) return;
+            const l = (v.fuelLogs || []).find(x => x.id === id);
             if(!l) return;
             state.editingFuelId = id;
             document.getElementById('v-f-date').value = l.date;
@@ -983,29 +1001,42 @@
             if(cost <= 0) return showToast('金額必須大於0！已取消新增。', 'error');
             
             const isNew = !state.editingFuelId;
-            const data = {
+            const logData = {
                 id: isNew ? Date.now().toString() : state.editingFuelId,
-                vehicleId: vid, date, cost,
+                date, cost,
                 preMileage: inputMil,
                 type: document.getElementById('v-f-type').value,
                 liters: document.getElementById('v-f-lit').value
             };
             
             const v = state.vehicles.find(x => x.id === vid);
-            if (v && inputMil > Number(v.totalMileage || 0)) {
+            if(!v) return;
+            
+            if (inputMil > Number(v.totalMileage || 0)) {
                 v.totalMileage = inputMil;
-                window.saveToDb('vehicles', v);
                 document.getElementById('v-reg-mileage').value = inputMil;
             }
 
-            window.saveToDb('fuelLogs', data);
+            if(!v.fuelLogs) v.fuelLogs = [];
+            
+            if (isNew) {
+                v.fuelLogs.push(logData);
+            } else {
+                const idx = v.fuelLogs.findIndex(l => l.id === state.editingFuelId);
+                if (idx > -1) v.fuelLogs[idx] = logData;
+            }
+
+            window.saveToDb('vehicles', v);
             showToast(isNew ? '加油紀錄新增成功' : '加油紀錄修改成功');
             window.vCancelFuelEdit();
         };
 
-        window.vEditMain = (id) => {
-            const l = state.maintenanceLogs.find(x => x.id === id);
+        window.vEditMain = (vid, id) => {
+            const v = state.vehicles.find(x => x.id === vid);
+            if(!v) return;
+            const l = (v.maintenanceLogs || []).find(x => x.id === id);
             if(!l) return;
+            
             state.editingMainId = id;
             document.getElementById('v-m-date').value = l.date;
             document.getElementById('v-m-purp').value = l.purpose;
@@ -1016,8 +1047,6 @@
             
             if (l.items && Array.isArray(l.items) && l.items.length > 0) {
                 state.mainItems = [...l.items];
-            } else if (l.details) {
-                state.mainItems = [{ name: l.details, price: l.totalCost || 0 }];
             } else {
                 state.mainItems = [];
             }
@@ -1119,9 +1148,9 @@
             const totalCost = window.calcMainTotal();
 
             const isNew = !state.editingMainId;
-            const data = {
+            const logData = {
                 id: isNew ? Date.now().toString() : state.editingMainId,
-                vehicleId: vid, date, purpose: purp,
+                date, purpose: purp,
                 garage: document.getElementById('v-m-garage').value,
                 changedParts: document.getElementById('v-m-part').value,
                 items: validItems,
@@ -1129,7 +1158,20 @@
                 preMileage: document.getElementById('v-m-mil').value,
                 suggestion: document.getElementById('v-m-sug').value
             };
-            window.saveToDb('maintenanceLogs', data);
+            
+            const v = state.vehicles.find(x => x.id === vid);
+            if(!v) return;
+            
+            if(!v.maintenanceLogs) v.maintenanceLogs = [];
+            
+            if (isNew) {
+                v.maintenanceLogs.push(logData);
+            } else {
+                const idx = v.maintenanceLogs.findIndex(l => l.id === state.editingMainId);
+                if (idx > -1) v.maintenanceLogs[idx] = logData;
+            }
+
+            window.saveToDb('vehicles', v);
             showToast(isNew ? '保養單紀錄已新增' : '保養單修改成功');
             window.vCancelMainEdit();
         };
@@ -1381,10 +1423,11 @@
             lucide.createIcons();
         };
 
-        window.openDeleteModal = (e, type, id) => {
+        window.openDeleteModal = (e, type, id, parentId = null) => {
             e.stopPropagation();
             state.deleteTargetType = type;
             state.deleteTargetId = id;
+            state.deleteParentId = parentId;
             
             const modal = document.getElementById('confirm-modal');
             const inner = document.getElementById('confirm-modal-inner');
@@ -1398,6 +1441,8 @@
         window.closeModal = () => {
             state.deleteTargetType = null;
             state.deleteTargetId = null;
+            state.deleteParentId = null;
+            
             const modal = document.getElementById('confirm-modal');
             const inner = document.getElementById('confirm-modal-inner');
             modal.classList.add('opacity-0');
@@ -1409,11 +1454,24 @@
 
         window.executeDelete = () => {
             if(state.deleteTargetId && state.deleteTargetType) {
-                window.delFromDb(state.deleteTargetType, state.deleteTargetId);
-                
-                if(state.deleteTargetType === 'dispatches' && state.editingDispatchId === state.deleteTargetId) window.dispCancelEdit();
-                if(state.deleteTargetType === 'fuelLogs' && state.editingFuelId === state.deleteTargetId) window.vCancelFuelEdit();
-                if(state.deleteTargetType === 'maintenanceLogs' && state.editingMainId === state.deleteTargetId) window.vCancelMainEdit();
+                if (state.deleteTargetType === 'dispatches') {
+                    window.delFromDb('dispatches', state.deleteTargetId);
+                    if(state.editingDispatchId === state.deleteTargetId) window.dispCancelEdit();
+                } else if (state.deleteTargetType === 'fuelLogs') {
+                    const v = state.vehicles.find(x => x.id === state.deleteParentId);
+                    if(v) {
+                        v.fuelLogs = (v.fuelLogs || []).filter(l => l.id !== state.deleteTargetId);
+                        window.saveToDb('vehicles', v);
+                    }
+                    if(state.editingFuelId === state.deleteTargetId) window.vCancelFuelEdit();
+                } else if (state.deleteTargetType === 'maintenanceLogs') {
+                    const v = state.vehicles.find(x => x.id === state.deleteParentId);
+                    if(v) {
+                        v.maintenanceLogs = (v.maintenanceLogs || []).filter(l => l.id !== state.deleteTargetId);
+                        window.saveToDb('vehicles', v);
+                    }
+                    if(state.editingMainId === state.deleteTargetId) window.vCancelMainEdit();
+                }
             }
             window.closeModal();
             showToast('已成功刪除紀錄');
