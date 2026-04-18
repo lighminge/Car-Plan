@@ -1,8 +1,9 @@
+```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>企業派車管理系統 OS</title>
     
     <!-- Tailwind CSS -->
@@ -10,6 +11,13 @@
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 引入 Firebase Compat CDN -->
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+    <!-- 🚨 引入 Firebase App Check SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-check-compat.js"></script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,9 +28,10 @@
         body, html {
             margin: 0;
             padding: 0;
+            height: 100dvh; 
             overflow: hidden;
             font-family: 'Noto Sans TC', sans-serif;
-            background-color: #020617; /* Fallback */
+            background-color: #020617; 
         }
 
         .tech-bg {
@@ -45,49 +54,81 @@
         }
 
         input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
+        input[type="time"]::-webkit-calendar-picker-indicator,
+        input[type="month"]::-webkit-calendar-picker-indicator {
             filter: invert(1);
             opacity: 0.6;
             cursor: pointer;
         }
 
+        /* 唯讀模式表單樣式 */
+        .readonly-form input:disabled, 
+        .readonly-form select:disabled, 
+        .readonly-form textarea:disabled {
+            background-color: transparent !important;
+            border-color: transparent !important;
+            color: #f1f5f9 !important;
+            box-shadow: none !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            padding-left: 0 !important;
+            opacity: 1 !important; 
+            cursor: default !important;
+        }
+
         /* 自訂隱形卷軸 */
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.4); }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 防止選取文字導致的藍底色 */
         .no-select { user-select: none; -webkit-user-select: none; }
+
+        .nav-btn { color: #94a3b8; }
+        .nav-btn:hover { color: #22d3ee; background-color: rgba(255, 255, 255, 0.05); }
+        .nav-btn.active-nav { color: #22d3ee; background-color: rgba(255, 255, 255, 0.1); }
+        
+        /* 確保 iOS 不會強制放大輸入框 */
+        input, select, textarea { font-size: 16px !important; }
     </style>
 </head>
-<body class="h-screen w-screen text-slate-100 flex flex-col relative tech-bg">
+<body class="text-slate-100 flex flex-col relative tech-bg">
 
-    <!-- 加大置中 Toast 訊息提示框 -->
-    <div id="toast" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] glass-panel px-12 py-10 rounded-3xl text-white shadow-[0_0_50px_rgba(34,211,238,0.2)] border-2 border-cyan-500/50 transition-all duration-300 opacity-0 pointer-events-none scale-75 flex flex-col items-center">
-        <div id="toast-icon-container" class="mb-4"></div>
-        <span id="toast-msg" class="font-bold tracking-widest text-3xl text-center">訊息</span>
+    <!-- 響應式 Toast 訊息提示框 -->
+    <div id="toast" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] glass-panel w-[85%] md:w-auto px-6 py-8 md:px-12 md:py-10 rounded-3xl text-white shadow-[0_0_50px_rgba(34,211,238,0.2)] border-2 border-cyan-500/50 transition-all duration-300 opacity-0 pointer-events-none scale-75 flex flex-col items-center">
+        <div id="toast-icon-container" class="mb-3 md:mb-4"></div>
+        <span id="toast-msg" class="font-bold tracking-widest text-xl md:text-3xl text-center leading-relaxed">訊息</span>
     </div>
 
-    <!-- 頂部狀態列 -->
-    <div class="flex justify-between items-center px-6 py-2 text-slate-300 text-sm font-medium z-50 w-full pointer-events-none absolute top-0">
-        <span id="clock">00:00</span>
-        <div class="flex space-x-3 items-center">
+    <!-- 全域頂部導覽列 -->
+    <nav class="glass-panel border-b border-white/10 px-4 md:px-6 py-3 flex items-center justify-between z-50 w-full shrink-0">
+        <div class="flex items-center space-x-1 md:space-x-2 overflow-x-auto no-scrollbar w-full md:w-auto">
+            <div class="flex items-center text-cyan-400 font-bold text-lg md:text-xl tracking-widest mr-4 md:mr-6 pl-1 md:pl-2 select-none shrink-0">
+                <i data-lucide="car" class="w-5 h-5 md:w-6 md:h-6 mr-1 md:mr-2"></i> 派車OS
+            </div>
+            <button onclick="switchView('home')" id="nav-home" class="nav-btn shrink-0 active-nav px-3 md:px-4 py-2 rounded-lg font-medium transition whitespace-nowrap text-sm md:text-base">首頁</button>
+            <button onclick="switchView('vehicle')" id="nav-vehicle" class="nav-btn shrink-0 px-3 md:px-4 py-2 rounded-lg font-medium transition whitespace-nowrap text-sm md:text-base">車輛資料</button>
+            <button onclick="switchView('driver')" id="nav-driver" class="nav-btn shrink-0 px-3 md:px-4 py-2 rounded-lg font-medium transition whitespace-nowrap text-sm md:text-base">司機人事</button>
+            <button onclick="switchView('vendor')" id="nav-vendor" class="nav-btn shrink-0 px-3 md:px-4 py-2 rounded-lg font-medium transition whitespace-nowrap text-sm md:text-base">廠商管理</button>
+            <button onclick="switchView('dispatch')" id="nav-dispatch" class="nav-btn shrink-0 px-3 md:px-4 py-2 rounded-lg font-medium transition whitespace-nowrap text-sm md:text-base pr-6 md:pr-4">派車排程</button>
+        </div>
+        <div class="hidden md:flex space-x-4 items-center text-slate-300 text-sm font-medium shrink-0">
+            <span id="clock">00:00</span>
             <i data-lucide="wifi" class="w-4 h-4"></i>
             <i data-lucide="battery-full" class="w-5 h-5"></i>
         </div>
-    </div>
+    </nav>
 
-    <!-- 載入中 / 錯誤顯示畫面 -->
+    <!-- 載入中畫面 -->
     <div id="loading-screen" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-950 pointer-events-auto">
-        <div class="animate-pulse text-2xl text-cyan-400 font-medium tracking-widest flex items-center flex-col">
+        <div class="animate-pulse text-xl md:text-2xl text-cyan-400 font-medium tracking-widest flex items-center flex-col p-6 text-center">
             <div class="flex items-center mb-4">
                 <i data-lucide="loader-2" class="w-8 h-8 mr-3 animate-spin"></i> 正在建立安全連線...
             </div>
-            <span class="text-sm text-slate-500 tracking-normal font-normal">Establishing secure database connection...</span>
+            <span class="text-xs md:text-sm text-slate-500 tracking-normal font-normal">Establishing secure database connection...</span>
         </div>
     </div>
 
@@ -95,130 +136,130 @@
     <main id="app-container" class="flex-1 relative overflow-hidden hidden">
         
         <!-- ==================== 首頁 View ==================== -->
-        <div id="view-home" class="flex flex-col items-center justify-center h-full pt-12 pb-20 animate-in fade-in duration-500 relative z-10">
-            <div class="mb-20 text-center">
-                <h1 class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-widest drop-shadow-sm mb-4">
+        <div id="view-home" class="flex flex-col items-center justify-center h-full pb-10 md:pb-20 animate-in fade-in duration-500 relative z-10 overflow-y-auto px-4">
+            <div class="mb-10 md:mb-20 text-center mt-8 md:mt-0">
+                <h1 class="text-3xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-widest drop-shadow-sm mb-3 md:mb-4">
                     派車管理系統
                 </h1>
-                <p class="text-slate-400 text-2xl tracking-wider">Corporate Fleet Dispatch OS</p>
+                <p class="text-slate-400 text-lg md:text-2xl tracking-wider">Corporate Fleet Dispatch OS</p>
             </div>
             
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-16 px-8 max-w-6xl w-full">
-                <!-- 加大圖示與文字 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-16 max-w-6xl w-full pb-10">
                 <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('vehicle')">
-                    <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-xl shadow-blue-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
-                        <i data-lucide="car" class="w-16 h-16 text-white"></i>
+                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-xl shadow-blue-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
+                        <i data-lucide="car" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
                     </div>
-                    <span class="text-slate-200 font-bold text-2xl tracking-wide group-hover:text-white transition-colors">車輛資料</span>
+                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">車輛資料</span>
                 </div>
                 
                 <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('driver')">
-                    <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center shadow-xl shadow-emerald-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
-                        <i data-lucide="user" class="w-16 h-16 text-white"></i>
+                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center shadow-xl shadow-emerald-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
+                        <i data-lucide="user" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
                     </div>
-                    <span class="text-slate-200 font-bold text-2xl tracking-wide group-hover:text-white transition-colors">司機人事</span>
+                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">司機人事</span>
                 </div>
                 
                 <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('vendor')">
-                    <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-amber-500 to-orange-400 flex items-center justify-center shadow-xl shadow-amber-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
-                        <i data-lucide="building-2" class="w-16 h-16 text-white"></i>
+                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-amber-500 to-orange-400 flex items-center justify-center shadow-xl shadow-amber-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
+                        <i data-lucide="building-2" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
                     </div>
-                    <span class="text-slate-200 font-bold text-2xl tracking-wide group-hover:text-white transition-colors">廠商管理</span>
+                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">廠商管理</span>
                 </div>
                 
                 <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('dispatch')">
-                    <div class="w-40 h-40 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center shadow-xl shadow-violet-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-6">
-                        <i data-lucide="calendar-clock" class="w-16 h-16 text-white"></i>
+                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center shadow-xl shadow-violet-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
+                        <i data-lucide="calendar-clock" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
                     </div>
-                    <span class="text-slate-200 font-bold text-2xl tracking-wide group-hover:text-white transition-colors">派車排程</span>
+                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">派車排程</span>
                 </div>
             </div>
         </div>
 
         <!-- ==================== 車輛資料 View ==================== -->
-        <div id="view-vehicle" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
-            <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
-                <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
-                    <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
-                </button>
-                <h1 class="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-slate-100 tracking-wider">車輛資料管理</h1>
-                <div class="w-20"></div>
-            </div>
-            
-            <div class="max-w-6xl mx-auto w-full px-6 flex-1">
-                <div class="glass-panel p-6 rounded-3xl mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div class="flex items-center text-slate-300">
-                        <label class="mr-3 font-medium text-lg">選擇車輛</label>
-                        <select id="v-select" onchange="vLoadData()" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 min-w-[200px]"></select>
+        <div id="view-vehicle" class="h-full flex flex-col slide-in-right overflow-y-auto pb-24 absolute inset-0 z-20 hidden pt-4 md:pt-6">
+            <div class="max-w-6xl mx-auto w-full px-4 md:px-6 flex-1">
+                
+                <!-- 響應式頭部功能區 -->
+                <div class="glass-panel p-4 md:p-6 rounded-2xl md:rounded-3xl mb-4 md:mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center text-slate-300 w-full lg:w-auto gap-3">
+                        <label class="font-bold text-xl tracking-wider text-cyan-400 shrink-0">車輛管理</label>
+                        <select id="v-select" onchange="vLoadData(true)" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-cyan-500 min-w-[200px]"></select>
                     </div>
-                    <div class="flex space-x-3">
-                        <button onclick="vCancelCreate()" id="v-btn-cancel-create" class="hidden flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-500/30 rounded-xl transition font-medium">
-                            <i data-lucide="x" class="w-5 h-5 mr-2"></i>取消新增
+                    <div class="grid grid-cols-2 lg:flex lg:flex-wrap w-full lg:w-auto gap-2 md:gap-3 shrink-0">
+                        <button id="v-btn-edit" onclick="vToggleEdit(true)" class="flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="edit-3" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>修改
                         </button>
-                        <button onclick="vCreateNew()" id="v-btn-create" class="flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 rounded-xl transition font-medium">
-                            <i data-lucide="plus" class="w-5 h-5 mr-2"></i>新增車輛
+                        <button id="v-btn-cancel-edit" onclick="vCancelEdit()" class="hidden flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded-xl transition font-medium">
+                            <i data-lucide="x" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>取消修改
+                        </button>
+                        <button id="v-btn-save" onclick="vSaveRegistration()" class="hidden flex justify-center items-center px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50">
+                            <i data-lucide="save" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>儲存
+                        </button>
+                        
+                        <button onclick="vCancelCreate()" id="v-btn-cancel-create" class="hidden flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="x" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>取消新增
+                        </button>
+                        <button onclick="vCreateNew()" id="v-btn-create" class="flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="plus" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>新增車輛
                         </button>
                     </div>
                 </div>
 
                 <!-- Tabs -->
-                <div class="flex bg-slate-900/80 p-1 rounded-2xl mb-6 border border-slate-800 transition-all duration-300" id="v-tabs-container">
-                    <button onclick="vSwitchTab('reg')" id="v-tab-reg" class="v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all bg-slate-700 text-cyan-400 shadow-md">
-                        <i data-lucide="file-text" class="w-5 h-5 mr-2"></i> 車籍資料
+                <div class="flex bg-slate-900/80 p-1 rounded-xl md:rounded-2xl mb-4 md:mb-6 border border-slate-800 transition-all duration-300 overflow-x-auto no-scrollbar" id="v-tabs-container">
+                    <button onclick="vSwitchTab('reg')" id="v-tab-reg" class="v-tab shrink-0 flex-1 flex items-center justify-center py-2.5 md:py-3 px-3 md:px-4 rounded-lg md:rounded-xl font-medium text-sm md:text-lg transition-all bg-slate-700 text-cyan-400 shadow-md">
+                        <i data-lucide="file-text" class="w-4 h-4 md:w-5 md:h-5 mr-1.5 md:mr-2"></i> 車籍資料
                     </button>
-                    <button onclick="vSwitchTab('fuel')" id="v-tab-fuel" class="v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
-                        <i data-lucide="droplets" class="w-5 h-5 mr-2"></i> 加油紀錄
+                    <button onclick="vSwitchTab('fuel')" id="v-tab-fuel" class="v-tab shrink-0 flex-1 flex items-center justify-center py-2.5 md:py-3 px-3 md:px-4 rounded-lg md:rounded-xl font-medium text-sm md:text-lg transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                        <i data-lucide="droplets" class="w-4 h-4 md:w-5 md:h-5 mr-1.5 md:mr-2"></i> 加油紀錄
                     </button>
-                    <button onclick="vSwitchTab('main')" id="v-tab-main" class="v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
-                        <i data-lucide="wrench" class="w-5 h-5 mr-2"></i> 保養紀錄
+                    <button onclick="vSwitchTab('main')" id="v-tab-main" class="v-tab shrink-0 flex-1 flex items-center justify-center py-2.5 md:py-3 px-3 md:px-4 rounded-lg md:rounded-xl font-medium text-sm md:text-lg transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                        <i data-lucide="wrench" class="w-4 h-4 md:w-5 md:h-5 mr-1.5 md:mr-2"></i> 保養紀錄
                     </button>
                 </div>
 
-                <div class="glass-panel rounded-3xl p-8 border border-white/10 shadow-2xl relative">
+                <div class="glass-panel rounded-2xl md:rounded-3xl p-5 md:p-8 border border-white/10 shadow-2xl relative">
                     <!-- 車籍內容 -->
-                    <div id="v-content-reg" class="space-y-8">
+                    <div id="v-content-reg" class="space-y-6 md:space-y-8">
                         <input type="hidden" id="v-reg-id">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 relative z-10">
-                            <div><label class="block text-sm text-slate-400 mb-2">車牌號碼</label><input type="text" id="v-reg-plate" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-cyan-400 font-bold text-xl outline-none focus:border-cyan-500"></div>
+                        
+                        <div id="v-form" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-6 relative z-10 readonly-form pb-4">
+                            <div><label class="block text-sm text-slate-400 mb-1.5">車牌號碼</label><input type="text" id="v-reg-plate" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-cyan-400 font-bold text-lg md:text-xl outline-none focus:border-cyan-500 transition-all"></div>
                             
-                            <div><label class="block text-sm text-slate-400 mb-2">車輛類型</label>
-                                <select id="v-reg-type" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500">
+                            <div><label class="block text-sm text-slate-400 mb-1.5">車輛類型</label>
+                                <select id="v-reg-type" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all">
                                     <option>貨車</option><option>小客車</option>
                                 </select>
                             </div>
                             
-                            <div><label class="block text-sm text-slate-400 mb-2">車輛廠牌</label><input type="text" id="v-reg-brand" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
-                            <div><label class="block text-sm text-slate-400 mb-2">車輛型號</label><input type="text" id="v-reg-model" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
+                            <div><label class="block text-sm text-slate-400 mb-1.5">車輛廠牌</label><input type="text" id="v-reg-brand" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"></div>
+                            <div><label class="block text-sm text-slate-400 mb-1.5">車輛型號</label><input type="text" id="v-reg-model" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"></div>
                             
-                            <div><label class="block text-sm text-slate-400 mb-2">購買年月</label><input type="date" id="v-reg-purchase-date" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
-                            <div><label class="block text-sm text-slate-400 mb-2">購買金額</label><input type="number" id="v-reg-purchase-cost" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500" placeholder="例如：1200000"></div>
+                            <div><label class="block text-sm text-slate-400 mb-1.5">購買年月</label><input type="date" id="v-reg-purchase-date" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"></div>
+                            <div><label class="block text-sm text-slate-400 mb-1.5">購買金額</label><input type="number" id="v-reg-purchase-cost" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all" placeholder="例如：1200000"></div>
                             
-                            <div><label class="block text-sm text-slate-400 mb-2">使用油料</label>
-                                <select id="v-reg-fuelType" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500">
+                            <div><label class="block text-sm text-slate-400 mb-1.5">使用油料</label>
+                                <select id="v-reg-fuelType" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all">
                                     <option>柴油</option><option>92無鉛</option><option>95無鉛</option><option>98無鉛</option>
                                 </select>
                             </div>
 
-                            <div><label class="block text-sm text-slate-400 mb-2">總里程數 (km)</label><input type="number" id="v-reg-mileage" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
-                            <div><label class="block text-sm text-slate-400 mb-2">是否報廢</label><select id="v-reg-scrap" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"><option>否</option><option>是</option></select></div>
-                            <div><label class="block text-sm text-slate-400 mb-2">報廢日期</label><input type="date" id="v-reg-scrapDate" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-cyan-500"></div>
-                            <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">備註</label><textarea id="v-reg-notes" rows="3" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 outline-none focus:border-cyan-500"></textarea></div>
-                        </div>
-                        <div class="pt-6 flex justify-end relative z-10">
-                            <button onclick="vSaveRegistration()" class="flex items-center px-8 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl hover:opacity-90 font-bold text-lg shadow-lg shadow-cyan-900/50 transition-all active:scale-95">
-                                <i data-lucide="save" class="w-6 h-6 mr-2"></i> 儲存車籍資料
-                            </button>
+                            <div><label class="block text-sm text-slate-400 mb-1.5">總里程數 (km)</label><input type="number" id="v-reg-mileage" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"></div>
+                            <div><label class="block text-sm text-slate-400 mb-1.5">是否報廢</label><select id="v-reg-scrap" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"><option>否</option><option>是</option></select></div>
+                            <div><label class="block text-sm text-slate-400 mb-1.5">報廢日期</label><input type="date" id="v-reg-scrapDate" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"></div>
+                            <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">備註</label><textarea id="v-reg-notes" disabled rows="3" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-slate-100 outline-none focus:border-cyan-500 transition-all"></textarea></div>
                         </div>
                     </div>
 
                     <!-- 加油內容 -->
-                    <div id="v-content-fuel" class="space-y-8 hidden">
-                        <div id="v-f-form-panel" class="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 shadow-inner transition-colors duration-300">
-                            <h4 id="v-f-form-title" class="font-bold text-lg mb-5 flex items-center text-cyan-400"><i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 登記新加油紀錄</h4>
-                            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                    <div id="v-content-fuel" class="space-y-6 md:space-y-8 hidden">
+                        <div id="v-f-form-panel" class="bg-slate-800/40 p-4 md:p-6 rounded-2xl border border-slate-700/50 shadow-inner transition-colors duration-300">
+                            <h4 id="v-f-form-title" class="font-bold text-base md:text-lg mb-4 flex items-center text-cyan-400"><i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 登記新加油紀錄</h4>
+                            <!-- 手機單欄、平板雙欄、電腦五欄 -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
                                 <div><label class="block text-xs text-slate-400 mb-1">日期</label><input type="date" id="v-f-date" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500"></div>
                                 <div><label class="block text-xs text-slate-400 mb-1">里程數</label><input type="number" id="v-f-mil" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500 font-bold text-cyan-200" placeholder="輸入數字"></div>
-                                <div><label class="block text-xs text-slate-400 mb-1">油料種類 (同步車籍)</label>
+                                <div><label class="block text-xs text-slate-400 mb-1">油料種類</label>
                                     <select id="v-f-type" disabled class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-slate-400 outline-none opacity-80 cursor-not-allowed">
                                         <option>柴油</option><option>92無鉛</option><option>95無鉛</option><option>98無鉛</option>
                                     </select>
@@ -226,74 +267,138 @@
                                 <div><label class="block text-xs text-slate-400 mb-1">公升數</label><input type="number" id="v-f-lit" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="公升"></div>
                                 <div><label class="block text-xs text-slate-400 mb-1">費用(元)</label><input type="number" id="v-f-cost" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="金額"></div>
                             </div>
-                            <div class="flex justify-end space-x-3">
-                                <button id="v-f-btn-cancel" onclick="vCancelFuelEdit()" class="hidden px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition font-bold">取消修改</button>
-                                <button id="v-f-btn-save" onclick="vSaveFuel()" class="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認新增紀錄</button>
+                            <div class="grid grid-cols-2 gap-3 sm:flex sm:justify-end">
+                                <button id="v-f-btn-cancel" onclick="vCancelFuelEdit()" class="hidden w-full sm:w-auto justify-center px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition font-bold">取消</button>
+                                <button id="v-f-btn-save" onclick="vSaveFuel()" class="col-span-2 sm:col-span-1 flex w-full sm:w-auto justify-center items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存</button>
+                            </div>
+                        </div>
+
+                        <!-- 歷史表格工具列 (過濾 & 分頁 & 總計) -->
+                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 space-y-3 lg:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
+                            <div class="flex items-center space-x-2 w-full lg:w-auto">
+                                <label class="text-sm text-slate-400 font-medium shrink-0"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>年月篩選：</label>
+                                <input type="month" id="v-f-filter-month" onchange="vFilterChange('fuel')" class="flex-1 sm:w-auto bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
+                                <button onclick="vClearFilter('fuel')" class="p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white shrink-0 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            </div>
+                            <!-- 總計資訊 -->
+                            <div class="flex items-center justify-between sm:justify-center w-full lg:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 lg:mx-4 shadow-inner">
+                                <span class="text-slate-400">當前篩選共 <span id="v-f-summary-count" class="text-cyan-400 font-bold text-base px-1">0</span> 筆</span>
+                                <span class="text-slate-600 hidden sm:inline mx-3">|</span>
+                                <span class="text-slate-400">總花費 <span id="v-f-summary-cost" class="text-amber-400 font-bold text-base px-1">$0</span></span>
+                            </div>
+                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full lg:w-auto justify-end">
+                                <button onclick="vChangePage('fuel', -1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                                <span id="v-f-page-info" class="font-bold tracking-wider w-12 text-center text-cyan-400">1 / 1</span>
+                                <button onclick="vChangePage('fuel', 1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
                             </div>
                         </div>
 
                         <!-- 歷史表格 -->
-                        <div class="overflow-hidden rounded-2xl border border-slate-700">
-                            <table class="w-full text-left border-collapse">
-                                <thead><tr class="bg-slate-800/80 text-slate-300 text-sm border-b border-slate-700"><th class="p-4 font-medium">加油日期</th><th class="p-4 font-medium">加油時里程</th><th class="p-4 font-medium">油料種類</th><th class="p-4 font-medium">公升數</th><th class="p-4 font-medium">費用</th><th class="p-4 font-medium w-12"></th></tr></thead>
+                        <div class="overflow-x-auto rounded-2xl border border-slate-700 custom-scrollbar">
+                            <table class="w-full text-left border-collapse min-w-[600px]">
+                                <thead>
+                                    <tr class="bg-slate-800/80 text-slate-300 text-sm border-b border-slate-700">
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap text-center w-16">序號</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">加油日期</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">加油時里程</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">油料種類</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">公升數</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">費用</th>
+                                        <th class="p-3 md:p-4 font-medium w-12"></th>
+                                    </tr>
+                                </thead>
                                 <tbody id="v-fuel-list" class="divide-y divide-slate-800 text-slate-200">
-                                    <!-- JS Injected -->
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
                     <!-- 保養內容 -->
-                    <div id="v-content-main" class="space-y-8 hidden">
-                        <div id="v-m-form-panel" class="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 shadow-inner transition-colors duration-300">
-                            <h4 id="v-m-form-title" class="font-bold text-lg mb-5 flex items-center text-cyan-400"><i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 填寫新保養單</h4>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-5">
+                    <div id="v-content-main" class="space-y-6 md:space-y-8 hidden">
+                        <div id="v-m-form-panel" class="bg-slate-800/40 p-4 md:p-6 rounded-2xl border border-slate-700/50 shadow-inner transition-colors duration-300">
+                            <h4 id="v-m-form-title" class="font-bold text-base md:text-lg mb-4 flex items-center text-cyan-400"><i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 填寫新保養單</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-5">
                                 <div><label class="block text-xs text-slate-400 mb-1">保養日期</label><input type="date" id="v-m-date" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500"></div>
                                 <div><label class="block text-xs text-slate-400 mb-1">保養目的</label><input type="text" id="v-m-purp" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="例：五千定保"></div>
                                 <div><label class="block text-xs text-slate-400 mb-1">保養車廠</label><input type="text" id="v-m-garage" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="車廠名稱"></div>
                                 <div><label class="block text-xs text-slate-400 mb-1">是否更換零件</label><select id="v-m-part" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500"><option>否</option><option>是</option></select></div>
                                 <div><label class="block text-xs text-slate-400 mb-1">保養時里程</label><input type="number" id="v-m-mil" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="里程"></div>
-                                <div class="col-span-3"><label class="block text-xs text-slate-400 mb-1">車廠建議事項</label><input type="text" id="v-m-sug" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="下次注意事項"></div>
+                                <div class="col-span-1 sm:col-span-2 lg:col-span-3"><label class="block text-xs text-slate-400 mb-1">車廠建議事項</label><input type="text" id="v-m-sug" class="w-full bg-slate-900/60 border border-slate-600 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500" placeholder="下次注意事項"></div>
                             </div>
                             
-                            <div class="col-span-2 md:col-span-4 bg-slate-900/60 border border-slate-600/50 rounded-xl p-5 mb-5 shadow-inner">
+                            <!-- 保養明細 -->
+                            <div class="col-span-1 sm:col-span-2 lg:col-span-4 bg-slate-900/60 border border-slate-600/50 rounded-xl p-4 md:p-5 mb-5 shadow-inner">
                                 <div class="flex justify-between items-center mb-4">
-                                    <label class="text-sm text-cyan-400 font-bold tracking-wider flex items-center"><i data-lucide="clipboard-list" class="w-4 h-4 mr-2"></i> 更換明細與報價清單</label>
+                                    <label class="text-sm text-cyan-400 font-bold tracking-wider flex items-center"><i data-lucide="clipboard-list" class="w-4 h-4 mr-2"></i> 更換明細與報價</label>
                                 </div>
                                 
-                                <div class="flex items-center space-x-3 mb-4 bg-slate-800/80 p-2 rounded-lg border border-slate-600">
-                                    <input type="text" id="v-m-new-item-name" placeholder="輸入零件或保養項目名稱..." class="flex-1 bg-transparent border-none p-2 text-white outline-none focus:ring-0">
-                                    <input type="number" id="v-m-new-item-price" placeholder="單項金額" class="w-32 bg-slate-900/80 border border-slate-600 rounded-md p-2 text-white outline-none focus:border-cyan-500 text-right">
-                                    <button onclick="vAddMainItem()" class="text-cyan-400 hover:text-white bg-cyan-500/20 hover:bg-cyan-500/40 p-2 border border-cyan-500/50 rounded-lg transition-colors flex items-center"><i data-lucide="plus" class="w-5 h-5 mr-1"></i> 新增</button>
+                                <!-- 修改時背景會變色 -->
+                                <div id="v-m-item-input-area" class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 mb-4 bg-slate-800/80 p-3 md:p-4 rounded-xl border border-slate-600 transition-colors duration-300">
+                                    <input type="text" id="v-m-new-item-name" placeholder="輸入項目名稱..." class="w-full sm:flex-1 bg-slate-900/80 sm:bg-transparent border border-slate-600 sm:border-none p-3 text-white outline-none focus:border-cyan-500 sm:focus:ring-0 rounded-lg sm:rounded-none min-w-0 transition-colors">
+                                    <div class="flex space-x-2 w-full sm:w-auto shrink-0">
+                                        <input type="number" id="v-m-new-item-price" placeholder="單項金額" class="flex-1 sm:w-32 bg-slate-900/80 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-cyan-500 text-right min-w-0 transition-colors">
+                                        <button id="v-m-add-item-btn" onclick="vAddMainItem()" class="text-cyan-400 hover:text-white bg-cyan-500/20 hover:bg-cyan-500/40 px-5 py-3 border border-cyan-500/50 rounded-lg transition-colors flex items-center justify-center shrink-0">
+                                            <i data-lucide="plus" class="w-5 h-5"></i><span class="sm:hidden ml-1 font-bold">新增</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 
                                 <hr class="border-slate-700/80 mb-4 border-dashed">
-                                
-                                <div id="v-m-items-list" class="space-y-3 mb-4">
-                                    <!-- Items injected via JS -->
-                                </div>
+                                <div id="v-m-items-list" class="space-y-3 mb-4"></div>
                                 
                                 <div class="text-right border-t border-slate-700/80 pt-4 flex justify-between items-end">
-                                    <span class="text-slate-400 font-medium">共 <span id="v-m-total-count" class="text-cyan-400 font-bold text-xl px-1">0</span> 項</span>
+                                    <span class="text-slate-400 font-medium text-sm md:text-base">共 <span id="v-m-total-count" class="text-cyan-400 font-bold text-lg md:text-xl px-1">0</span> 項</span>
                                     <div>
-                                        <span class="text-slate-400 text-sm mb-1">總計金額</span>
-                                        <span class="text-3xl font-bold text-amber-400 tracking-wider ml-3">$ <span id="v-m-total-cost">0</span></span>
+                                        <span class="text-slate-400 text-xs md:text-sm mb-1 block">總計金額</span>
+                                        <span class="text-2xl md:text-3xl font-bold text-amber-400 tracking-wider ml-2 md:ml-3">$ <span id="v-m-total-cost">0</span></span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="flex justify-end space-x-3">
-                                <button id="v-m-btn-cancel" onclick="vCancelMainEdit()" class="hidden px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition font-bold">取消修改</button>
-                                <button id="v-m-btn-save" onclick="vSaveMain()" class="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存保養單</button>
+                            <div class="grid grid-cols-2 gap-3 sm:flex sm:justify-end">
+                                <button id="v-m-btn-cancel" onclick="vCancelMainEdit()" class="hidden w-full sm:w-auto justify-center px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition font-bold">取消</button>
+                                <button id="v-m-btn-save" onclick="vSaveMain()" class="col-span-2 sm:col-span-1 flex w-full sm:w-auto justify-center items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存保養單</button>
                             </div>
                         </div>
 
-                        <!-- 歷史表格 -->
-                        <div class="overflow-hidden rounded-2xl border border-slate-700">
-                            <table class="w-full text-left border-collapse">
-                                <thead><tr class="bg-slate-800/80 text-slate-300 text-sm border-b border-slate-700"><th class="p-4 font-medium">日期</th><th class="p-4 font-medium">目的</th><th class="p-4 font-medium">車廠</th><th class="p-4 font-medium text-center">換零件</th><th class="p-4 font-medium">內容明細</th><th class="p-4 font-medium">總額</th><th class="p-4 font-medium">里程</th><th class="p-4 font-medium">建議事項</th><th class="p-4 font-medium w-12"></th></tr></thead>
+                        <!-- 歷史表格工具列 (過濾 & 分頁 & 總計) -->
+                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 space-y-3 lg:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
+                            <div class="flex items-center space-x-2 w-full lg:w-auto">
+                                <label class="text-sm text-slate-400 font-medium shrink-0"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>年月篩選：</label>
+                                <input type="month" id="v-m-filter-month" onchange="vFilterChange('main')" class="flex-1 sm:w-auto bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
+                                <button onclick="vClearFilter('main')" class="p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white shrink-0 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            </div>
+                            <!-- 總計資訊 -->
+                            <div class="flex items-center justify-between sm:justify-center w-full lg:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 lg:mx-4 shadow-inner">
+                                <span class="text-slate-400">當前篩選共 <span id="v-m-summary-count" class="text-cyan-400 font-bold text-base px-1">0</span> 筆</span>
+                                <span class="text-slate-600 hidden sm:inline mx-3">|</span>
+                                <span class="text-slate-400">總花費 <span id="v-m-summary-cost" class="text-amber-400 font-bold text-base px-1">$0</span></span>
+                            </div>
+                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full lg:w-auto justify-end">
+                                <button onclick="vChangePage('main', -1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                                <span id="v-m-page-info" class="font-bold tracking-wider w-12 text-center text-cyan-400">1 / 1</span>
+                                <button onclick="vChangePage('main', 1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- 歷史表格防擠壓橫向捲動 -->
+                        <div class="overflow-x-auto rounded-2xl border border-slate-700 custom-scrollbar">
+                            <table class="w-full text-left border-collapse min-w-[800px]">
+                                <thead>
+                                    <tr class="bg-slate-800/80 text-slate-300 text-sm border-b border-slate-700">
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap text-center w-16">序號</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">日期</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">目的</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">車廠</th>
+                                        <th class="p-3 md:p-4 font-medium text-center whitespace-nowrap">換零件</th>
+                                        <th class="p-3 md:p-4 font-medium">內容明細</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">總額</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">里程</th>
+                                        <th class="p-3 md:p-4 font-medium whitespace-nowrap">建議事項</th>
+                                        <th class="p-3 md:p-4 font-medium w-12"></th>
+                                    </tr>
+                                </thead>
                                 <tbody id="v-main-list" class="divide-y divide-slate-800 text-slate-200">
-                                    <!-- JS Injected -->
                                 </tbody>
                             </table>
                         </div>
@@ -303,142 +408,141 @@
         </div>
 
         <!-- ==================== 司機資料 View ==================== -->
-        <div id="view-driver" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
-            <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
-                <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
-                    <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
-                </button>
-                <h1 class="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-slate-100 tracking-wider">司機人事資料</h1>
-                <div class="w-20"></div>
-            </div>
-            
-            <div class="max-w-4xl mx-auto w-full px-6 flex-1">
-                <div class="glass-panel p-6 rounded-3xl mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div class="flex items-center text-slate-300">
-                        <label class="mr-3 font-medium text-lg">選取人員</label>
-                        <select id="d-select" onchange="dLoadData()" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 min-w-[200px]"></select>
+        <div id="view-driver" class="h-full flex flex-col slide-in-right overflow-y-auto pb-24 absolute inset-0 z-20 hidden pt-4 md:pt-6">
+            <div class="max-w-4xl mx-auto w-full px-4 md:px-6 flex-1">
+                <div class="glass-panel p-4 md:p-6 rounded-2xl md:rounded-3xl mb-4 md:mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center text-slate-300 w-full lg:w-auto gap-3">
+                        <label class="mr-2 font-bold text-xl tracking-wider text-emerald-400 shrink-0">人事資料</label>
+                        <div class="grid grid-cols-2 gap-2 w-full sm:w-auto sm:ml-2">
+                            <select id="d-dept-select" onchange="dRenderSelect()" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-2.5 md:p-3 text-white outline-none focus:border-emerald-500 min-w-[120px]"></select>
+                            <select id="d-select" onchange="dLoadData(true)" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-2.5 md:p-3 text-white outline-none focus:border-emerald-500 min-w-[120px]"></select>
+                        </div>
                     </div>
-                    <button onclick="dCreateNew()" class="flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl transition font-medium">
-                        <i data-lucide="plus" class="w-5 h-5 mr-2"></i>新進人員
-                    </button>
+                    <div class="grid grid-cols-2 lg:flex lg:flex-wrap w-full lg:w-auto gap-2 md:gap-3 shrink-0">
+                        <button id="d-btn-edit" onclick="dToggleEdit(true)" class="flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="edit-3" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>修改
+                        </button>
+                        <button id="d-btn-cancel-edit" onclick="dCancelEdit()" class="hidden flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded-xl transition font-medium">
+                            <i data-lucide="x" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>取消修改
+                        </button>
+                        <button id="d-btn-save" onclick="dSave()" class="hidden flex justify-center items-center px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl transition font-bold shadow-lg shadow-emerald-900/50">
+                            <i data-lucide="save" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>儲存
+                        </button>
+
+                        <button onclick="dCancelCreate()" id="d-btn-cancel-create" class="hidden flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="x" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>取消新增
+                        </button>
+                        <button onclick="dCreateNew()" id="d-btn-create" class="flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="plus" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>新進人員
+                        </button>
+                    </div>
                 </div>
 
-                <div class="glass-panel rounded-3xl border border-white/10 shadow-2xl p-8">
+                <div class="glass-panel rounded-2xl md:rounded-3xl border border-white/10 shadow-2xl p-5 md:p-8 relative">
                     <input type="hidden" id="d-id">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                        <div><label class="block text-sm text-slate-400 mb-2">姓名</label><input type="text" id="d-name" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-emerald-400 font-bold text-xl outline-none focus:border-emerald-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">性別</label><select id="d-gender" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"><option>男</option><option>女</option></select></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">所屬單位</label><input type="text" id="d-dept" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">手機號碼</label><input type="text" id="d-phone" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">代理人</label><input type="text" id="d-deputy" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">其他備註</label><input type="text" id="d-other" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-emerald-500"></div>
-                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">相關持有執照</label><textarea id="d-lic" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 outline-none focus:border-emerald-500" rows="2"></textarea></div>
-                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">疾病史記錄</label><textarea id="d-med" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 outline-none focus:border-emerald-500" rows="2"></textarea></div>
-                    </div>
-                    <div class="pt-8 flex justify-end">
-                        <button onclick="dSave()" class="flex items-center px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:opacity-90 font-bold text-lg shadow-lg shadow-emerald-900/50 transition-all active:scale-95">
-                            <i data-lucide="save" class="w-6 h-6 mr-2"></i> 儲存人事資料
-                        </button>
+                    <div id="d-form" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-6 readonly-form pb-4">
+                        <div><label class="block text-sm text-slate-400 mb-1.5">姓名</label><input type="text" id="d-name" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-emerald-400 font-bold text-lg md:text-xl outline-none focus:border-emerald-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">性別</label><select id="d-gender" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"><option>男</option><option>女</option></select></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">所屬單位</label><input type="text" id="d-dept" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">手機號碼</label><input type="text" id="d-phone" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">代理人</label><input type="text" id="d-deputy" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">其他備註</label><input type="text" id="d-other" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
+                        <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">相關持有執照</label><textarea id="d-lic" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-slate-100 outline-none focus:border-emerald-500 transition-all" rows="2"></textarea></div>
+                        <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">疾病史記錄</label><textarea id="d-med" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-slate-100 outline-none focus:border-emerald-500 transition-all" rows="2"></textarea></div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- ==================== 廠商資料 View ==================== -->
-        <div id="view-vendor" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
-            <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
-                <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
-                    <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
-                </button>
-                <h1 class="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-slate-100 tracking-wider">合作廠商管理</h1>
-                <div class="w-20"></div>
-            </div>
-            
-            <div class="max-w-4xl mx-auto w-full px-6 flex-1">
-                <div class="glass-panel p-6 rounded-3xl mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div class="flex items-center text-slate-300">
-                        <label class="mr-3 font-medium text-lg">找尋廠商</label>
-                        <select id="ven-select" onchange="venLoadData()" class="bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 min-w-[250px]"></select>
+        <div id="view-vendor" class="h-full flex flex-col slide-in-right overflow-y-auto pb-24 absolute inset-0 z-20 hidden pt-4 md:pt-6">
+            <div class="max-w-4xl mx-auto w-full px-4 md:px-6 flex-1">
+                <div class="glass-panel p-4 md:p-6 rounded-2xl md:rounded-3xl mb-4 md:mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center text-slate-300 w-full lg:w-auto gap-3">
+                        <label class="mr-2 font-bold text-xl tracking-wider text-amber-400 shrink-0">廠商管理</label>
+                        <select id="ven-select" onchange="venLoadData()" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-amber-500 min-w-[200px] lg:min-w-[250px] sm:ml-4"></select>
                     </div>
-                    <button onclick="venCreateNew()" class="flex items-center px-5 py-3 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-xl transition font-medium">
-                        <i data-lucide="plus" class="w-5 h-5 mr-2"></i>新增廠商
-                    </button>
+                    <div class="grid grid-cols-2 lg:flex lg:flex-wrap w-full lg:w-auto gap-2 md:gap-3 shrink-0">
+                        <button id="ven-btn-edit" onclick="venToggleEdit(true)" class="flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="edit-3" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>修改
+                        </button>
+                        <button id="ven-btn-cancel-edit" onclick="venCancelEdit()" class="hidden flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded-xl transition font-medium">
+                            <i data-lucide="x" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>取消修改
+                        </button>
+                        <button id="ven-btn-save" onclick="venSave()" class="hidden flex justify-center items-center px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl transition font-bold shadow-lg shadow-amber-900/50">
+                            <i data-lucide="save" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>儲存
+                        </button>
+
+                        <button onclick="venCancelCreate()" id="ven-btn-cancel-create" class="hidden flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="x" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>取消新增
+                        </button>
+                        <button onclick="venCreateNew()" id="ven-btn-create" class="flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-xl transition font-medium">
+                            <i data-lucide="plus" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>新增廠商
+                        </button>
+                    </div>
                 </div>
 
-                <div class="glass-panel rounded-3xl border border-white/10 shadow-2xl p-8">
+                <div class="glass-panel rounded-2xl md:rounded-3xl border border-white/10 shadow-2xl p-5 md:p-8 relative">
                     <input type="hidden" id="ven-id">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">廠商名稱</label><input type="text" id="ven-name" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-2xl font-bold text-amber-400 outline-none focus:border-amber-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">廠商加工性質</label><input type="text" id="ven-nature" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">負責人</label><input type="text" id="ven-owner" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">聯絡人</label><input type="text" id="ven-contact" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">傳真</label><input type="text" id="ven-fax" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">電話 1</label><input type="text" id="ven-p1" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
-                        <div><label class="block text-sm text-slate-400 mb-2">電話 2</label><input type="text" id="ven-p2" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
-                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">地址 1</label><input type="text" id="ven-a1" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
-                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">地址 2</label><input type="text" id="ven-a2" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:border-amber-500"></div>
-                        <div class="col-span-2"><label class="block text-sm text-slate-400 mb-2">備註</label><textarea id="ven-notes" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-100 outline-none focus:border-amber-500" rows="2"></textarea></div>
-                    </div>
-                    <div class="pt-8 flex justify-end">
-                        <button onclick="venSave()" class="flex items-center px-8 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:opacity-90 font-bold text-lg shadow-lg shadow-amber-900/50 transition-all active:scale-95">
-                            <i data-lucide="save" class="w-6 h-6 mr-2"></i> 儲存廠商資料
-                        </button>
+                    <div id="ven-form" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-6 readonly-form pb-4">
+                        <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">廠商名稱</label><input type="text" id="ven-name" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-xl md:text-2xl font-bold text-amber-400 outline-none focus:border-amber-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">廠商加工性質</label><input type="text" id="ven-nature" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">負責人</label><input type="text" id="ven-owner" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">聯絡人</label><input type="text" id="ven-contact" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">傳真</label><input type="text" id="ven-fax" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">電話 1</label><input type="text" id="ven-p1" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">電話 2</label><input type="text" id="ven-p2" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
+                        <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">地址 1</label><input type="text" id="ven-a1" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
+                        <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">地址 2</label><input type="text" id="ven-a2" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
+                        <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">備註</label><textarea id="ven-notes" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-slate-100 outline-none focus:border-amber-500 transition-all" rows="2"></textarea></div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- ==================== 派車排程 View ==================== -->
-        <div id="view-dispatch" class="h-full flex flex-col slide-in-right overflow-y-auto pb-20 absolute inset-0 z-20 hidden">
-            <div class="sticky top-0 z-40 glass-panel border-b border-white/10 px-4 py-4 flex items-center justify-between mb-6 pt-8">
-                <button onclick="switchView('home')" class="flex items-center text-cyan-400 hover:text-cyan-300 transition-colors text-lg font-bold px-2 py-1 rounded-lg hover:bg-white/5 active:scale-95">
-                    <i data-lucide="chevron-left" class="w-6 h-6 mr-1"></i> 首頁
-                </button>
-                <h1 class="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-slate-100 tracking-wider">派車排程月曆</h1>
-                <div class="w-20"></div>
-            </div>
-            
-            <div class="max-w-[1400px] mx-auto w-full px-6 flex-1 grid grid-cols-1 xl:grid-cols-4 gap-8">
+        <div id="view-dispatch" class="h-full flex flex-col slide-in-right overflow-y-auto pb-24 absolute inset-0 z-20 hidden pt-4 md:pt-6">
+            <div class="max-w-[1400px] mx-auto w-full px-4 md:px-6 flex-1 grid grid-cols-1 xl:grid-cols-4 gap-6 md:gap-8">
                 <!-- 左側：表單區塊 -->
                 <div class="xl:col-span-1 space-y-6">
-                    <div id="disp-form-panel" class="p-8 rounded-3xl border shadow-2xl transition-all glass-panel border-white/10">
-                        <h3 id="disp-form-title" class="font-bold text-2xl mb-6 border-b border-slate-700/50 pb-4 flex items-center text-slate-100">
-                            <i data-lucide="calendar-clock" class="w-6 h-6 mr-3 text-violet-400"></i> 登記派車
+                    <div id="disp-form-panel" class="p-5 md:p-8 rounded-2xl md:rounded-3xl border shadow-2xl transition-all glass-panel border-white/10 xl:mt-0">
+                        <h3 id="disp-form-title" class="font-bold text-xl md:text-2xl mb-5 md:mb-6 border-b border-slate-700/50 pb-3 md:pb-4 flex items-center text-slate-100">
+                            <i data-lucide="calendar-clock" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-violet-400"></i> 登記派車
                         </h3>
-                        <div class="space-y-6">
+                        <div class="space-y-4 md:space-y-6">
                             <input type="hidden" id="disp-id">
                             <div>
-                                <label class="block text-sm text-slate-400 mb-2">1. 選擇司機</label>
-                                <select id="disp-driver" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500"></select>
+                                <label class="block text-xs md:text-sm text-slate-400 mb-1.5">1. 選擇司機</label>
+                                <select id="disp-driver" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500"></select>
                             </div>
                             <div>
-                                <label class="block text-sm text-slate-400 mb-2">2. 派車日期</label>
-                                <input type="date" id="disp-date" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
+                                <label class="block text-xs md:text-sm text-slate-400 mb-1.5">2. 派車日期</label>
+                                <input type="date" id="disp-date" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                                 <div>
-                                    <label class="block text-sm text-slate-400 mb-2">開始時間</label>
-                                    <input type="time" id="disp-start" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
+                                    <label class="block text-xs md:text-sm text-slate-400 mb-1.5">開始時間</label>
+                                    <input type="time" id="disp-start" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
                                 </div>
                                 <div>
-                                    <label class="block text-sm text-slate-400 mb-2">結束時間</label>
-                                    <input type="time" id="disp-end" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
+                                    <label class="block text-xs md:text-sm text-slate-400 mb-1.5">結束時間</label>
+                                    <input type="time" id="disp-end" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
                                 </div>
                             </div>
-                            <div class="bg-slate-800/50 p-4 rounded-2xl text-center border border-slate-700/50">
-                                <span class="text-slate-400 text-sm">排定時長</span>
-                                <div class="text-violet-400 font-bold text-3xl mt-1"><span id="disp-hours">2.0</span> <span class="text-lg text-slate-500">h</span></div>
+                            <div class="bg-slate-800/50 p-3 md:p-4 rounded-xl md:rounded-2xl text-center border border-slate-700/50">
+                                <span class="text-slate-400 text-xs md:text-sm">排定時長</span>
+                                <div class="text-violet-400 font-bold text-2xl md:text-3xl mt-1"><span id="disp-hours">2.0</span> <span class="text-base md:text-lg text-slate-500">h</span></div>
                             </div>
                             <div>
-                                <label class="block text-sm text-slate-400 mb-2">3. 目的地 (廠商)</label>
-                                <select id="disp-vendor" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500"></select>
+                                <label class="block text-xs md:text-sm text-slate-400 mb-1.5">3. 目的地 (廠商)</label>
+                                <select id="disp-vendor" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500"></select>
                             </div>
                             
-                            <div class="pt-2 flex flex-col space-y-3">
-                                <button onclick="dispSave()" id="disp-save-btn" class="w-full font-bold text-lg py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-purple-900/50">
+                            <div class="pt-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
+                                <button onclick="dispSave()" id="disp-save-btn" class="col-span-1 sm:col-span-2 xl:col-span-1 w-full font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-purple-900/50">
                                     送出排程
                                 </button>
-                                <button onclick="dispCancelEdit()" id="disp-cancel-btn" class="hidden w-full bg-slate-800 text-slate-300 font-bold py-3.5 rounded-xl hover:bg-slate-700 transition">
+                                <button onclick="dispCancelEdit()" id="disp-cancel-btn" class="hidden col-span-1 sm:col-span-2 xl:col-span-1 w-full bg-slate-800 text-slate-300 font-bold py-3 md:py-3.5 rounded-xl hover:bg-slate-700 transition">
                                     取消修改
                                 </button>
                             </div>
@@ -447,27 +551,29 @@
                 </div>
 
                 <!-- 右側：月曆 -->
-                <div class="xl:col-span-3 glass-panel rounded-3xl shadow-2xl border border-white/10 flex flex-col min-h-[750px] relative overflow-hidden">
-                    <div class="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-900/30 z-10">
-                        <button onclick="calPrevMonth()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-full transition"><i data-lucide="chevron-left" class="w-6 h-6 text-slate-300"></i></button>
-                        <h2 id="cal-title" class="text-2xl font-bold text-slate-100 flex items-center tracking-wider">
+                <div class="xl:col-span-3 glass-panel rounded-2xl md:rounded-3xl shadow-2xl border border-white/10 flex flex-col min-h-[600px] md:min-h-[750px] relative overflow-hidden">
+                    <div class="flex items-center justify-between p-4 md:p-6 border-b border-slate-700/50 bg-slate-900/30 z-10 shrink-0">
+                        <button onclick="calPrevMonth()" class="p-2 md:p-3 bg-slate-800 hover:bg-slate-700 rounded-full transition"><i data-lucide="chevron-left" class="w-5 h-5 md:w-6 md:h-6 text-slate-300"></i></button>
+                        <h2 id="cal-title" class="text-lg md:text-2xl font-bold text-slate-100 flex items-center tracking-wider">
                             YYYY 年 MM 月
                         </h2>
-                        <button onclick="calNextMonth()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-full transition"><i data-lucide="chevron-right" class="w-6 h-6 text-slate-300"></i></button>
+                        <button onclick="calNextMonth()" class="p-2 md:p-3 bg-slate-800 hover:bg-slate-700 rounded-full transition"><i data-lucide="chevron-right" class="w-5 h-5 md:w-6 md:h-6 text-slate-300"></i></button>
                     </div>
 
-                    <div class="flex-1 p-6 flex flex-col z-10">
-                        <div class="grid grid-cols-7 gap-3 text-center font-bold text-sm mb-4">
-                            <div class="uppercase tracking-widest text-rose-400">日</div>
-                            <div class="uppercase tracking-widest text-slate-400">一</div>
-                            <div class="uppercase tracking-widest text-slate-400">二</div>
-                            <div class="uppercase tracking-widest text-slate-400">三</div>
-                            <div class="uppercase tracking-widest text-slate-400">四</div>
-                            <div class="uppercase tracking-widest text-slate-400">五</div>
-                            <div class="uppercase tracking-widest text-rose-400">六</div>
-                        </div>
-                        <div id="cal-grid" class="grid grid-cols-7 gap-3 flex-1 auto-rows-fr">
-                            <!-- JS Injected -->
+                    <div class="flex-1 p-3 md:p-6 flex flex-col z-10 overflow-x-auto custom-scrollbar">
+                        <div class="min-w-[700px] h-full flex flex-col">
+                            <div class="grid grid-cols-7 gap-2 md:gap-3 text-center font-bold text-xs md:text-sm mb-3 md:mb-4 shrink-0">
+                                <div class="uppercase tracking-widest text-rose-400">日</div>
+                                <div class="uppercase tracking-widest text-slate-400">一</div>
+                                <div class="uppercase tracking-widest text-slate-400">二</div>
+                                <div class="uppercase tracking-widest text-slate-400">三</div>
+                                <div class="uppercase tracking-widest text-slate-400">四</div>
+                                <div class="uppercase tracking-widest text-slate-400">五</div>
+                                <div class="uppercase tracking-widest text-rose-400">六</div>
+                            </div>
+                            <div id="cal-grid" class="grid grid-cols-7 gap-2 md:gap-3 flex-1 auto-rows-fr">
+                                <!-- JS Injected -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -477,29 +583,25 @@
 
     <!-- 共用 Confirm Modal -->
     <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
-        <div class="glass-panel border border-slate-600 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300" id="confirm-modal-inner">
-            <div class="p-6 flex items-center border-b border-slate-700/50">
-                <i data-lucide="alert-circle" class="text-rose-500 w-8 h-8 mr-3"></i>
-                <h3 class="text-xl font-bold text-slate-100">確認刪除</h3>
+        <div class="glass-panel border border-slate-600 rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300" id="confirm-modal-inner">
+            <div class="p-5 md:p-6 flex items-center border-b border-slate-700/50">
+                <i data-lucide="alert-circle" class="text-rose-500 w-7 h-7 md:w-8 md:h-8 mr-3"></i>
+                <h3 class="text-lg md:text-xl font-bold text-slate-100">確認刪除</h3>
             </div>
-            <div class="p-6 text-slate-300 text-lg leading-relaxed">
+            <div class="p-5 md:p-6 text-slate-300 text-base md:text-lg leading-relaxed">
                 您確定要移除這筆資料嗎？刪除後將無法復原。
             </div>
-            <div class="bg-slate-900/50 p-4 flex justify-end space-x-4">
-                <button onclick="closeModal()" class="px-6 py-2.5 text-slate-300 hover:bg-slate-800 rounded-xl transition font-medium">取消</button>
-                <button onclick="executeDelete()" class="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition shadow-lg shadow-rose-900/50 font-medium">確認刪除</button>
+            <div class="bg-slate-900/50 p-4 flex justify-end space-x-3 md:space-x-4">
+                <button onclick="closeModal()" class="px-5 md:px-6 py-2.5 text-slate-300 hover:bg-slate-800 rounded-xl transition font-medium">取消</button>
+                <button onclick="executeDelete()" class="px-5 md:px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition shadow-lg shadow-rose-900/50 font-medium">確認刪除</button>
             </div>
         </div>
     </div>
 
     <!-- Application Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, query, limit, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+    <script>
         // ==========================================
-        // 🔴 準備部署到 Github 必看！請填寫您的 Firebase 設定 🔴
+        // 🔴 Firebase 設定
         // ==========================================
         const myFirebaseConfig = {
             apiKey: "AIzaSyBP4iJdYf4Y3Q1NxX2p4853VQzp1lEk5Kw",
@@ -511,45 +613,31 @@
             measurementId: "G-M0291K772X"
         };
 
-        // 自動判斷是否為預覽環境或 Github 正式環境
-        const isCustomConfigValid = myFirebaseConfig.apiKey && myFirebaseConfig.apiKey !== "請在此填寫您的 apiKey" && !myFirebaseConfig.apiKey.includes("請在此");
-        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        let finalConfig = {};
-        let isCanvasPreview = false;
+        if (!firebase.apps.length) firebase.initializeApp(myFirebaseConfig);
 
-        if (isCustomConfigValid) {
-            finalConfig = myFirebaseConfig;
-        } else if (typeof __firebase_config !== 'undefined') {
-            try {
-                finalConfig = typeof firebaseConfigStr === 'string' ? JSON.parse(firebaseConfigStr) : firebaseConfigStr;
-                if (Object.keys(finalConfig).length > 0) isCanvasPreview = true;
-            } catch(e) { console.warn("Firebase parse error"); }
+        // 🚨 App Check 整合設定 (防機器人/確保 Github Pages 安全)
+        try {
+            const RECAPTCHA_SITE_KEY = "6Lf8j70sAAAAABP5S5I9W_x0MwtXjx7ZuRsX8uP1"; 
+            
+            if (RECAPTCHA_SITE_KEY && !RECAPTCHA_SITE_KEY.includes("請填入")) {
+                const appCheck = firebase.appCheck();
+                appCheck.activate({
+                    provider: new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+                    isTokenAutoRefreshEnabled: true
+                });
+                console.log("🔒 Firebase App Check 已啟動");
+            }
+        } catch (e) {
+            console.warn("App Check 初始化略過或失敗:", e);
         }
-
-        const app = Object.keys(finalConfig).length > 0 ? initializeApp(finalConfig) : null;
-        const auth = app ? getAuth(app) : null;
-        const db = app ? getFirestore(app) : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dispatch-system-app';
-
-        // Firebase 資料庫路徑動態判斷
-        const getColRef = (colName) => {
-            if (isCanvasPreview) {
-                return collection(db, 'artifacts', appId, 'public', 'data', colName);
-            } else {
-                return collection(db, 'dispatch_system_data', 'v1', colName);
-            }
-        };
-
-        const getDocRef = (colName, id) => {
-            if (isCanvasPreview) {
-                return doc(db, 'artifacts', appId, 'public', 'data', colName, id);
-            } else {
-                return doc(db, 'dispatch_system_data', 'v1', colName, id);
-            }
-        };
+        
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
         // --- 本地端極速快取機制 ---
-        const CACHE_KEY = `dispatch_system_cache_${appId}`;
+        let useLocalMode = false;
+        const CACHE_KEY = 'dispatch_system_cache_v12';
+        
         const loadLocalCache = () => {
             try {
                 const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
@@ -567,7 +655,7 @@
 
         const localData = loadLocalCache();
 
-        // Global State
+        // Global State & 過濾分頁狀態
         window.state = {
             user: null,
             vehicles: localData.vehicles || [],
@@ -585,8 +673,13 @@
             deleteParentId: null, 
             
             mainItems: [], 
-            isCreatingVehicle: false 
+            isCreatingVehicle: false,
+            isCreatingDriver: false,
+            isCreatingVendor: false
         };
+
+        // 表格分頁狀態
+        window.vFilter = { fuelPage: 1, mainPage: 1 };
 
         const eventColors = ['bg-cyan-600', 'bg-blue-600', 'bg-indigo-600', 'bg-violet-600', 'bg-fuchsia-600'];
 
@@ -605,8 +698,12 @@
             document.querySelectorAll('#app-container > div').forEach(el => el.classList.add('hidden'));
             document.getElementById(`view-${viewId}`).classList.remove('hidden');
             
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active-nav'));
+            const activeBtn = document.getElementById(`nav-${viewId}`);
+            if (activeBtn) activeBtn.classList.add('active-nav');
+            
             if(viewId === 'vehicle') window.vRenderSelect();
-            if(viewId === 'driver') window.dRenderSelect();
+            if(viewId === 'driver') window.dRenderDeptSelect();
             if(viewId === 'vendor') window.venRenderSelect();
             if(viewId === 'dispatch') window.dispRenderSelectors();
         };
@@ -617,11 +714,11 @@
             document.getElementById('toast-msg').innerText = msg;
 
             if (type === 'error') {
-                iconContainer.innerHTML = '<i data-lucide="alert-triangle" class="w-20 h-20 text-rose-400"></i>';
+                iconContainer.innerHTML = '<i data-lucide="alert-triangle" class="w-16 h-16 md:w-20 md:h-20 text-rose-400"></i>';
                 t.classList.replace('border-cyan-500/50', 'border-rose-500/50');
                 t.classList.replace('shadow-[0_0_50px_rgba(34,211,238,0.2)]', 'shadow-[0_0_50px_rgba(244,63,94,0.2)]');
             } else {
-                iconContainer.innerHTML = '<i data-lucide="check-circle-2" class="w-20 h-20 text-cyan-400"></i>';
+                iconContainer.innerHTML = '<i data-lucide="check-circle-2" class="w-16 h-16 md:w-20 md:h-20 text-cyan-400"></i>';
                 t.classList.replace('border-rose-500/50', 'border-cyan-500/50');
                 t.classList.replace('shadow-[0_0_50px_rgba(244,63,94,0.2)]', 'shadow-[0_0_50px_rgba(34,211,238,0.2)]');
             }
@@ -635,28 +732,28 @@
             }, 1200);
         };
 
-        // 詳細錯誤提示畫面 - 新增相對層級設定確保連結可點擊
-        window.showFatalError = (msg) => {
-            const ls = document.getElementById('loading-screen');
-            ls.classList.remove('hidden');
-            ls.classList.add('pointer-events-auto');
-            document.getElementById('app-container').classList.add('hidden');
-            ls.innerHTML = `
-                <div class="text-rose-400 font-bold text-2xl flex flex-col items-center text-left max-w-2xl bg-slate-900/90 p-10 rounded-3xl border border-rose-500/50 shadow-[0_0_50px_rgba(244,63,94,0.2)] pointer-events-auto relative z-50">
-                    <div class="flex items-center justify-center w-full mb-6">
-                        <i data-lucide="alert-triangle" class="w-12 h-12 text-rose-500 mr-4"></i>
-                        <span>雲端資料庫連線中斷</span>
-                    </div>
-                    <span class="text-base text-slate-300 mt-2 font-normal leading-relaxed w-full">${msg}</span>
-                </div>
-            `;
-            lucide.createIcons();
+        const handleFirebaseError = (error, actionName) => {
+            console.warn(`Firebase ${actionName}錯誤:`, error);
+            if (!useLocalMode) {
+                useLocalMode = true;
+                window.showToast(`⚠️ 雲端連線異常，已切換為「單機離線模式」`, 'error');
+            }
+        };
+
+        const toggleFormInputs = (formId, isEdit) => {
+            const container = document.getElementById(formId);
+            if (isEdit) {
+                container.classList.remove('readonly-form');
+                container.querySelectorAll('input, select, textarea').forEach(el => el.disabled = false);
+            } else {
+                container.classList.add('readonly-form');
+                container.querySelectorAll('input, select, textarea').forEach(el => el.disabled = true);
+            }
         };
 
         async function init() {
             lucide.createIcons();
 
-            // 🚀 極速優化：啟動時直接渲染本地快取
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
             window.renderAll();
@@ -666,64 +763,32 @@
                 document.getElementById('clock').innerText = now.toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
             }, 1000);
 
-            if (!app) {
-                window.showFatalError("未偵測到有效的 Firebase 設定！<br><br>請於程式碼最下方的 <b>myFirebaseConfig</b> 填入您自己的 apiKey 等資訊，才能部署至 GitHub。");
-                return;
-            }
-
             try {
-                if (isCanvasPreview && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                    console.log("✅ 成功以匿名身份登入 Firebase");
-                }
+                await auth.signInAnonymously();
             } catch (e) { 
-                console.error("Firebase Auth Error:", e); 
-                if (e.code === 'auth/operation-not-allowed') {
-                    window.showFatalError("Firebase 驗證失敗！<br><br>您必須到 Firebase 控制台的 Authentication > Sign-in method 頁面，<b>手動啟用「匿名 (Anonymous)」登入功能</b>。");
-                } else if (e.code === 'auth/invalid-api-key') {
-                    window.showFatalError("API Key 錯誤！<br><br>請確認您填入的 myFirebaseConfig 的 apiKey 是否正確。");
-                } else {
-                    window.showFatalError("驗證失敗: " + e.message);
-                }
-                return;
+                handleFirebaseError(e, "登入驗證");
             }
 
-            onAuthStateChanged(auth, async user => {
+            auth.onAuthStateChanged(user => {
                 state.user = user;
-                if(user) {
-                    try {
-                        // 主動測試連線探測資料庫，攔截 missing database 避免無窮迴圈
-                        await getDocs(query(getColRef('vehicles'), limit(1)));
-                        syncData();
-                    } catch (err) {
-                        const errMsg = err.message || err.code || "";
-                        if (errMsg.includes('not-found') || errMsg.includes('does not exist')) {
-                            window.showFatalError("找不到 Firestore 資料庫！<br><br>您的 Firebase 專案已成功連線，但尚未建立資料庫實體。<br><br>👉 請至 Firebase 控制台的 <b>Firestore Database</b> 頁面，點擊 <b>「Create database (建立資料庫)」</b>。<br><br><a href='https://console.firebase.google.com/project/github-car/firestore' target='_blank' class='inline-block mt-4 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition font-bold'>點此前往 Firebase 控制台設定</a>");
-                        } else if (errMsg.includes('permission-denied')) {
-                            window.showFatalError("Firestore 權限不足！<br><br>請至 Firebase 控制台的 Firestore Database > <b>Rules (規則)</b> 頁籤，將內容修改為以下並發布：<br><br><code class='bg-slate-950 p-4 block text-left text-sm text-amber-300 rounded-xl border border-slate-700 mt-2'>rules_version = '2';<br>service cloud.firestore {<br>&nbsp;&nbsp;match /databases/{database}/documents {<br>&nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if request.auth != null;<br>&nbsp;&nbsp;&nbsp;&nbsp;}<br>&nbsp;&nbsp;}<br>}</code>");
-                        } else {
-                            console.error(err);
-                            syncData();
-                        }
-                    }
-                }
+                if(user) syncData();
             });
         }
 
-        // 資料同步邏輯
         function syncData() {
-            const cols = ['vehicles', 'drivers', 'vendors', 'dispatches'];
-            
+            if (useLocalMode) return;
+
             const setupSync = (colName, initData) => {
                 let isFirstLoad = true;
-                onSnapshot(getColRef(colName), snap => {
-                    const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                
+                db.collection(colName).onSnapshot(snap => {
+                    const data = snap.docs.map(doc => ({id: doc.id, ...doc.data()}));
                     
                     if (data.length === 0 && initData && isFirstLoad) {
                         state[colName] = initData;
-                        initData.forEach(item => setDoc(getDocRef(colName, item.id), item));
+                        initData.forEach(item => {
+                            db.collection(colName).doc(item.id).set(item).catch(e => console.warn(e));
+                        });
                     } else {
                         state[colName] = data;
                     }
@@ -733,7 +798,7 @@
                     isFirstLoad = false;
 
                 }, (err) => {
-                    console.warn(`Sync warning ${colName}`, err);
+                    handleFirebaseError(err, `讀取 ${colName}`);
                 });
             };
 
@@ -744,8 +809,9 @@
         }
 
         window.renderAll = () => {
+            if(!document.getElementById('view-home').classList.contains('hidden')) return; 
             if(document.getElementById('v-select')) window.vRenderSelect();
-            if(document.getElementById('d-select')) window.dRenderSelect();
+            if(document.getElementById('d-dept-select')) window.dRenderDeptSelect();
             if(document.getElementById('ven-select')) window.venRenderSelect();
             if(document.getElementById('disp-driver')) window.dispRenderSelectors();
             window.renderCalendar();
@@ -760,12 +826,12 @@
             saveLocalCache(); 
             window.renderAll();
 
-            if(!db || !state.user) return;
+            if (useLocalMode) return;
+            
             try { 
-                await setDoc(getDocRef(colName, data.id), data); 
+                await db.collection(colName).doc(data.id).set(data);
             } catch(e) { 
-                console.error('DB save error', e); 
-                window.showToast('雲端儲存失敗，請檢查權限設定', 'error'); 
+                handleFirebaseError(e, '儲存資料');
             }
         };
 
@@ -775,12 +841,12 @@
             saveLocalCache(); 
             window.renderAll();
 
-            if(!db || !state.user) return;
+            if (useLocalMode) return;
+            
             try { 
-                await deleteDoc(getDocRef(colName, id)); 
+                await db.collection(colName).doc(id).delete();
             } catch(e) { 
-                console.error('DB delete error', e); 
-                window.showToast('雲端刪除失敗，請檢查權限設定', 'error'); 
+                handleFirebaseError(e, '刪除資料');
             }
         };
 
@@ -794,15 +860,33 @@
             ['reg', 'fuel', 'main'].forEach(t => {
                 document.getElementById(`v-content-${t}`).classList.add('hidden');
                 const btn = document.getElementById(`v-tab-${t}`);
-                btn.className = `v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all ${state.isCreatingVehicle ? 'opacity-50 cursor-not-allowed' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`;
+                btn.className = `v-tab shrink-0 flex-1 flex items-center justify-center py-2.5 md:py-3 px-3 md:px-4 rounded-lg md:rounded-xl font-medium text-sm md:text-lg transition-all ${state.isCreatingVehicle ? 'opacity-50 cursor-not-allowed' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`;
             });
             
             document.getElementById(`v-content-${tab}`).classList.remove('hidden');
             const activeBtn = document.getElementById(`v-tab-${tab}`);
-            activeBtn.className = "v-tab flex-1 flex items-center justify-center py-3 px-4 rounded-xl font-medium text-lg transition-all bg-slate-700 text-cyan-400 shadow-md";
+            activeBtn.className = "v-tab shrink-0 flex-1 flex items-center justify-center py-2.5 md:py-3 px-3 md:px-4 rounded-lg md:rounded-xl font-medium text-sm md:text-lg transition-all bg-slate-700 text-cyan-400 shadow-md";
+        };
+
+        window.vToggleEdit = (isEdit) => {
+            toggleFormInputs('v-form', isEdit);
+            if (isEdit) {
+                document.getElementById('v-btn-edit').classList.add('hidden');
+                document.getElementById('v-btn-save').classList.remove('hidden');
+                if(!state.isCreatingVehicle) document.getElementById('v-btn-cancel-edit').classList.remove('hidden');
+            } else {
+                document.getElementById('v-btn-edit').classList.remove('hidden');
+                document.getElementById('v-btn-save').classList.add('hidden');
+                document.getElementById('v-btn-cancel-edit').classList.add('hidden');
+            }
+        };
+
+        window.vCancelEdit = () => {
+            window.vLoadData();
         };
 
         window.vRenderSelect = (forceId = null) => {
+            if(document.getElementById('view-vehicle').classList.contains('hidden')) return;
             const sel = document.getElementById('v-select');
             let curr = forceId || sel.value;
             if (state.isCreatingVehicle) curr = '';
@@ -811,10 +895,10 @@
             if(curr && state.vehicles.some(v=>v.id===curr)) sel.value = curr;
             else if(state.vehicles.length && !state.isCreatingVehicle) sel.value = state.vehicles[0].id;
             
-            window.vLoadData();
+            window.vLoadData(true);
         };
 
-        window.vLoadData = () => {
+        window.vLoadData = (isResetFilter = false) => {
             const id = document.getElementById('v-select').value;
             const v = state.vehicles.find(x => x.id === id) || {};
             document.getElementById('v-reg-id').value = v.id || '';
@@ -832,6 +916,8 @@
             document.getElementById('v-reg-scrapDate').value = v.scrapDate || '';
             document.getElementById('v-reg-notes').value = v.notes || '';
 
+            window.vToggleEdit(false);
+
             document.getElementById('v-f-mil').value = v.totalMileage || '';
             document.getElementById('v-f-type').value = v.fuelType || '柴油';
             window.vCancelFuelEdit();
@@ -840,43 +926,15 @@
             window.initMainItems();
             window.vCancelMainEdit();
 
-            const fLogs = v.fuelLogs || [];
-            document.getElementById('v-fuel-list').innerHTML = fLogs.length ? fLogs.map(l => 
-                `<tr onclick="vEditFuel('${id}', '${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer">
-                    <td class="p-4">${l.date}</td>
-                    <td class="p-4">${l.preMileage}</td>
-                    <td class="p-4">${l.type}</td>
-                    <td class="p-4">${l.liters} L</td>
-                    <td class="p-4 text-cyan-400 font-medium">$ ${l.cost}</td>
-                    <td class="p-4 text-right">
-                        <button onclick="openDeleteModal(event, 'fuelLogs', '${l.id}', '${id}')" class="text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    </td>
-                </tr>`
-            ).join('') : `<tr><td colspan="6" class="p-8 text-center text-slate-500">尚無紀錄</td></tr>`;
+            if (isResetFilter) {
+                document.getElementById('v-f-filter-month').value = '';
+                document.getElementById('v-m-filter-month').value = '';
+                window.vFilter.fuelPage = 1;
+                window.vFilter.mainPage = 1;
+            }
 
-            const mLogs = v.maintenanceLogs || [];
-            document.getElementById('v-main-list').innerHTML = mLogs.length ? mLogs.map(l => {
-                let partsHtml = '-';
-                if (l.items && Array.isArray(l.items)) {
-                    partsHtml = l.items.map(i => `${i.name} ($${i.price})`).join('<br>');
-                }
-                const costHtml = l.totalCost ? `<span class="text-amber-400 font-bold">$${l.totalCost}</span>` : '-';
-                return `<tr onclick="vEditMain('${id}', '${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer">
-                    <td class="p-4 whitespace-nowrap">${l.date}</td>
-                    <td class="p-4">${l.purpose}</td>
-                    <td class="p-4">${l.garage}</td>
-                    <td class="p-4 text-center">${l.changedParts}</td>
-                    <td class="p-4 text-sm">${partsHtml}</td>
-                    <td class="p-4">${costHtml}</td>
-                    <td class="p-4">${l.preMileage}</td>
-                    <td class="p-4 text-amber-400">${l.suggestion}</td>
-                    <td class="p-4 text-right">
-                        <button onclick="openDeleteModal(event, 'maintenanceLogs', '${l.id}', '${id}')" class="text-rose-400 hover:text-rose-300 opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    </td>
-                </tr>`;
-            }).join('') : `<tr><td colspan="9" class="p-8 text-center text-slate-500">尚無保養紀錄</td></tr>`;
-            
-            lucide.createIcons();
+            window.vRenderFuelTable();
+            window.vRenderMainTable();
         };
 
         window.vCreateNew = () => {
@@ -899,6 +957,7 @@
             document.getElementById('v-btn-create').classList.add('hidden');
             
             window.vSwitchTab('reg');
+            window.vToggleEdit(true); 
         };
 
         window.vCancelCreate = () => {
@@ -951,7 +1010,67 @@
             document.getElementById('v-tab-fuel').classList.remove('opacity-50', 'cursor-not-allowed');
             document.getElementById('v-tab-main').classList.remove('opacity-50', 'cursor-not-allowed');
             
+            window.vToggleEdit(false); 
             showToast('車籍資料已成功儲存！');
+        };
+
+        window.vFilterChange = (type) => {
+            window.vFilter[`${type}Page`] = 1;
+            if(type === 'fuel') window.vRenderFuelTable();
+            if(type === 'main') window.vRenderMainTable();
+        };
+
+        window.vClearFilter = (type) => {
+            document.getElementById(`v-${type === 'fuel' ? 'f' : 'm'}-filter-month`).value = '';
+            window.vFilterChange(type);
+        };
+
+        window.vChangePage = (type, delta) => {
+            window.vFilter[`${type}Page`] += delta;
+            if(type === 'fuel') window.vRenderFuelTable();
+            if(type === 'main') window.vRenderMainTable();
+        };
+
+        window.vRenderFuelTable = () => {
+            const vid = document.getElementById('v-select').value;
+            const v = state.vehicles.find(x => x.id === vid) || {};
+            let logs = [...(v.fuelLogs || [])];
+
+            logs.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            const mFilter = document.getElementById('v-f-filter-month').value;
+            if (mFilter) logs = logs.filter(l => l.date.startsWith(mFilter));
+
+            const totalCount = logs.length;
+            const totalCost = logs.reduce((sum, l) => sum + (Number(l.cost) || 0), 0);
+            
+            document.getElementById('v-f-summary-count').innerText = totalCount;
+            document.getElementById('v-f-summary-cost').innerText = '$' + totalCost.toLocaleString();
+
+            const pageSize = 10;
+            const totalPages = Math.max(1, Math.ceil(logs.length / pageSize));
+            if(window.vFilter.fuelPage > totalPages) window.vFilter.fuelPage = totalPages;
+            if(window.vFilter.fuelPage < 1) window.vFilter.fuelPage = 1;
+
+            document.getElementById('v-f-page-info').innerText = `${window.vFilter.fuelPage} / ${totalPages}`;
+
+            const startIdx = (window.vFilter.fuelPage - 1) * pageSize;
+            const pagedLogs = logs.slice(startIdx, startIdx + pageSize);
+
+            document.getElementById('v-fuel-list').innerHTML = pagedLogs.length ? pagedLogs.map((l, idx) => 
+                `<tr onclick="vEditFuel('${vid}', '${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer text-xs md:text-sm">
+                    <td class="p-3 md:p-4 whitespace-nowrap text-center font-bold text-slate-500">${startIdx + idx + 1}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap">${l.date}</td>
+                    <td class="p-3 md:p-4">${l.preMileage}</td>
+                    <td class="p-3 md:p-4">${l.type}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap">${l.liters} L</td>
+                    <td class="p-3 md:p-4 text-cyan-400 font-medium whitespace-nowrap">$ ${Number(l.cost).toLocaleString()}</td>
+                    <td class="p-3 md:p-4 text-right">
+                        <button onclick="openDeleteModal(event, 'fuelLogs', '${l.id}', '${vid}')" class="text-rose-400 hover:text-rose-300 md:opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>`
+            ).join('') : `<tr><td colspan="7" class="p-8 text-center text-slate-500">尚無紀錄</td></tr>`;
+            lucide.createIcons();
         };
 
         window.vEditFuel = (vid, id) => {
@@ -971,8 +1090,8 @@
             document.getElementById('v-f-form-title').innerHTML = `<i data-lucide="edit" class="w-5 h-5 mr-2"></i> ✎ 正在修改加油紀錄`;
             document.getElementById('v-f-form-title').classList.replace('text-cyan-400', 'text-amber-400');
             document.getElementById('v-f-btn-cancel').classList.remove('hidden');
-            document.getElementById('v-f-btn-save').innerHTML = `<i data-lucide="save" class="w-5 h-5 mr-2"></i> 儲存修改`;
-            document.getElementById('v-f-btn-save').className = "flex items-center px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-amber-900/50";
+            document.getElementById('v-f-btn-save').innerHTML = `<i data-lucide="save" class="w-5 h-5 mr-2"></i> 確認修改`;
+            document.getElementById('v-f-btn-save').className = "flex w-full sm:w-auto justify-center items-center px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-amber-900/50";
             lucide.createIcons();
             
             document.getElementById('view-vehicle').scrollTo({ top: 0, behavior: 'smooth' });
@@ -996,8 +1115,8 @@
             document.getElementById('v-f-form-title').innerHTML = `<i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 登記新加油紀錄`;
             document.getElementById('v-f-form-title').classList.replace('text-amber-400', 'text-cyan-400');
             document.getElementById('v-f-btn-cancel').classList.add('hidden');
-            document.getElementById('v-f-btn-save').innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認新增紀錄`;
-            document.getElementById('v-f-btn-save').className = "flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50";
+            document.getElementById('v-f-btn-save').innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認新增`;
+            document.getElementById('v-f-btn-save').className = "flex w-full sm:w-auto justify-center items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50";
             lucide.createIcons();
         };
 
@@ -1025,6 +1144,7 @@
             
             if (inputMil > Number(v.totalMileage || 0)) {
                 v.totalMileage = inputMil;
+                window.saveToDb('vehicles', v);
                 document.getElementById('v-reg-mileage').value = inputMil;
             }
 
@@ -1040,6 +1160,56 @@
             window.saveToDb('vehicles', v);
             showToast(isNew ? '加油紀錄新增成功' : '加油紀錄修改成功');
             window.vCancelFuelEdit();
+        };
+
+        window.vRenderMainTable = () => {
+            const vid = document.getElementById('v-select').value;
+            const v = state.vehicles.find(x => x.id === vid) || {};
+            let logs = [...(v.maintenanceLogs || [])];
+
+            logs.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            const mFilter = document.getElementById('v-m-filter-month').value;
+            if (mFilter) logs = logs.filter(l => l.date.startsWith(mFilter));
+
+            const totalCount = logs.length;
+            const totalCost = logs.reduce((sum, l) => sum + (Number(l.totalCost) || 0), 0);
+            
+            document.getElementById('v-m-summary-count').innerText = totalCount;
+            document.getElementById('v-m-summary-cost').innerText = '$' + totalCost.toLocaleString();
+
+            const pageSize = 10;
+            const totalPages = Math.max(1, Math.ceil(logs.length / pageSize));
+            if(window.vFilter.mainPage > totalPages) window.vFilter.mainPage = totalPages;
+            if(window.vFilter.mainPage < 1) window.vFilter.mainPage = 1;
+
+            document.getElementById('v-m-page-info').innerText = `${window.vFilter.mainPage} / ${totalPages}`;
+
+            const startIdx = (window.vFilter.mainPage - 1) * pageSize;
+            const pagedLogs = logs.slice(startIdx, startIdx + pageSize);
+
+            document.getElementById('v-main-list').innerHTML = pagedLogs.length ? pagedLogs.map((l, idx) => {
+                let partsHtml = '-';
+                if (l.items && Array.isArray(l.items)) {
+                    partsHtml = l.items.map(i => `${i.name} ($${Number(i.price).toLocaleString()})`).join('<br>');
+                }
+                const costHtml = l.totalCost ? `<span class="text-amber-400 font-bold whitespace-nowrap">$${Number(l.totalCost).toLocaleString()}</span>` : '-';
+                return `<tr onclick="vEditMain('${vid}', '${l.id}')" class="hover:bg-slate-800/50 transition-colors group cursor-pointer text-xs md:text-sm">
+                    <td class="p-3 md:p-4 whitespace-nowrap text-center font-bold text-slate-500">${startIdx + idx + 1}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap">${l.date}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap">${l.purpose}</td>
+                    <td class="p-3 md:p-4 whitespace-nowrap">${l.garage}</td>
+                    <td class="p-3 md:p-4 text-center">${l.changedParts}</td>
+                    <td class="p-3 md:p-4 text-xs whitespace-nowrap">${partsHtml}</td>
+                    <td class="p-3 md:p-4">${costHtml}</td>
+                    <td class="p-3 md:p-4">${l.preMileage}</td>
+                    <td class="p-3 md:p-4 text-amber-400 whitespace-nowrap">${l.suggestion}</td>
+                    <td class="p-3 md:p-4 text-right">
+                        <button onclick="openDeleteModal(event, 'maintenanceLogs', '${l.id}', '${vid}')" class="text-rose-400 hover:text-rose-300 md:opacity-0 group-hover:opacity-100 transition-opacity p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>`;
+            }).join('') : `<tr><td colspan="10" class="p-8 text-center text-slate-500">尚無保養紀錄</td></tr>`;
+            lucide.createIcons();
         };
 
         window.vEditMain = (vid, id) => {
@@ -1068,8 +1238,8 @@
             document.getElementById('v-m-form-title').innerHTML = `<i data-lucide="edit" class="w-5 h-5 mr-2"></i> ✎ 正在修改保養紀錄`;
             document.getElementById('v-m-form-title').classList.replace('text-cyan-400', 'text-amber-400');
             document.getElementById('v-m-btn-cancel').classList.remove('hidden');
-            document.getElementById('v-m-btn-save').innerHTML = `<i data-lucide="save" class="w-5 h-5 mr-2"></i> 儲存修改`;
-            document.getElementById('v-m-btn-save').className = "flex items-center px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-amber-900/50";
+            document.getElementById('v-m-btn-save').innerHTML = `<i data-lucide="save" class="w-5 h-5 mr-2"></i> 確認修改`;
+            document.getElementById('v-m-btn-save').className = "flex w-full sm:w-auto justify-center items-center px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-amber-900/50";
             lucide.createIcons();
             
             document.getElementById('view-vehicle').scrollTo({ top: 0, behavior: 'smooth' });
@@ -1094,9 +1264,20 @@
             document.getElementById('v-m-form-title').innerHTML = `<i data-lucide="pen-tool" class="w-5 h-5 mr-2"></i> 填寫新保養單`;
             document.getElementById('v-m-form-title').classList.replace('text-amber-400', 'text-cyan-400');
             document.getElementById('v-m-btn-cancel').classList.add('hidden');
-            document.getElementById('v-m-btn-save').innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存保養單`;
-            document.getElementById('v-m-btn-save').className = "flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50";
+            document.getElementById('v-m-btn-save').innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存`;
+            document.getElementById('v-m-btn-save').className = "flex w-full sm:w-auto justify-center items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50";
             lucide.createIcons();
+        };
+
+        const resetMainItemInput = () => {
+            const inputArea = document.getElementById('v-m-item-input-area');
+            if (inputArea && inputArea.classList.contains('bg-amber-900/40')) {
+                inputArea.classList.replace('bg-amber-900/40', 'bg-slate-800/80');
+                inputArea.classList.replace('border-amber-500', 'border-slate-600');
+                const btn = document.getElementById('v-m-add-item-btn');
+                btn.innerHTML = `<i data-lucide="plus" class="w-5 h-5"></i><span class="sm:hidden ml-1 font-bold">新增</span>`;
+                btn.className = "text-cyan-400 hover:text-white bg-cyan-500/20 hover:bg-cyan-500/40 px-5 py-3 border border-cyan-500/50 rounded-lg transition-colors flex items-center justify-center shrink-0";
+            }
         };
 
         window.vAddMainItem = () => {
@@ -1109,6 +1290,8 @@
             state.mainItems.push({ name, price: Number(price) || 0 });
             document.getElementById('v-m-new-item-name').value = '';
             document.getElementById('v-m-new-item-price').value = '';
+            
+            resetMainItemInput();
             window.renderMainItems();
         };
 
@@ -1117,19 +1300,42 @@
             window.renderMainItems();
         };
 
+        window.editMainItem = (idx) => {
+            const item = state.mainItems[idx];
+            document.getElementById('v-m-new-item-name').value = item.name;
+            document.getElementById('v-m-new-item-price').value = item.price;
+            
+            const inputArea = document.getElementById('v-m-item-input-area');
+            inputArea.classList.replace('bg-slate-800/80', 'bg-amber-900/40');
+            inputArea.classList.replace('border-slate-600', 'border-amber-500');
+            
+            const btn = document.getElementById('v-m-add-item-btn');
+            btn.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i><span class="hidden sm:inline ml-1 font-bold">更新</span><span class="sm:hidden ml-1 font-bold">更新</span>`;
+            btn.className = "text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 px-5 py-3 rounded-lg transition-colors flex items-center justify-center shrink-0 shadow-lg shadow-amber-900/50 border border-amber-500/50";
+            lucide.createIcons();
+
+            state.mainItems.splice(idx, 1);
+            window.renderMainItems();
+
+            document.getElementById('v-m-new-item-name').focus();
+        };
+
         window.calcMainTotal = () => {
             const total = state.mainItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-            document.getElementById('v-m-total-cost').innerText = total;
+            document.getElementById('v-m-total-cost').innerText = total.toLocaleString();
             return total;
         };
 
         window.renderMainItems = () => {
             const html = state.mainItems.map((item, idx) => `
-                <div class="flex items-center space-x-3 text-slate-200 bg-slate-900/40 p-2 rounded-lg">
-                    <button onclick="removeMainItem(${idx})" class="text-rose-400 hover:text-rose-300 p-2 bg-rose-500/10 rounded-md transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    <span class="text-cyan-500 font-bold w-8 text-center">${idx + 1}.</span>
-                    <span class="flex-1 pl-2">${item.name}</span>
-                    <span class="w-32 text-right font-medium tracking-wider">$${item.price}</span>
+                <div class="flex items-center space-x-2 sm:space-x-3 text-slate-200 bg-slate-900/40 p-2 rounded-lg min-w-0">
+                    <div class="flex space-x-1 shrink-0">
+                        <button onclick="editMainItem(${idx})" class="text-amber-400 hover:text-amber-300 p-2 bg-amber-500/10 rounded-md transition-colors" title="修改"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                        <button onclick="removeMainItem(${idx})" class="text-rose-400 hover:text-rose-300 p-2 bg-rose-500/10 rounded-md transition-colors" title="刪除"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                    <span class="text-cyan-500 font-bold w-5 sm:w-6 text-center shrink-0">${idx + 1}.</span>
+                    <span class="flex-1 pl-1 sm:pl-2 text-sm sm:text-base truncate min-w-0">${item.name}</span>
+                    <span class="w-20 sm:w-32 text-right font-medium tracking-wider text-sm sm:text-base shrink-0">$${Number(item.price).toLocaleString()}</span>
                 </div>
             `).join('');
             document.getElementById('v-m-items-list').innerHTML = html;
@@ -1140,6 +1346,7 @@
 
         window.initMainItems = () => {
             state.mainItems = [];
+            resetMainItemInput();
             window.renderMainItems();
         };
 
@@ -1187,12 +1394,57 @@
             window.vCancelMainEdit();
         };
 
-        window.dRenderSelect = () => {
-            const sel = document.getElementById('d-select');
+        // --- Driver Logic ---
+        window.dToggleEdit = (isEdit) => {
+            toggleFormInputs('d-form', isEdit);
+            if (isEdit) {
+                document.getElementById('d-btn-edit').classList.add('hidden');
+                document.getElementById('d-btn-save').classList.remove('hidden');
+                if(!state.isCreatingDriver) document.getElementById('d-btn-cancel-edit').classList.remove('hidden');
+            } else {
+                document.getElementById('d-btn-edit').classList.remove('hidden');
+                document.getElementById('d-btn-save').classList.add('hidden');
+                document.getElementById('d-btn-cancel-edit').classList.add('hidden');
+            }
+        };
+
+        window.dCancelEdit = () => {
+            window.dLoadData();
+        };
+
+        window.dRenderDeptSelect = () => {
+            if(document.getElementById('view-driver').classList.contains('hidden')) return;
+            const sel = document.getElementById('d-dept-select');
             const curr = sel.value;
-            sel.innerHTML = state.drivers.map(d => `<option value="${d.id}">${d.name} - ${d.department}</option>`).join('');
-            if(!curr && state.drivers.length) sel.value = state.drivers[0].id;
-            else if(curr) sel.value = curr;
+            const depts = [...new Set(state.drivers.map(d => d.department))].filter(Boolean);
+            
+            sel.innerHTML = depts.map(dept => `<option value="${dept}">${dept}</option>`).join('');
+            
+            if (curr && depts.includes(curr)) {
+                sel.value = curr;
+            } else if (depts.length > 0) {
+                sel.value = depts[0];
+            }
+            
+            window.dRenderSelect();
+        };
+
+        window.dRenderSelect = (forceId = null) => {
+            const dept = document.getElementById('d-dept-select').value;
+            const sel = document.getElementById('d-select');
+            let curr = forceId || sel.value;
+            
+            if (state.isCreatingDriver) curr = '';
+
+            const filtered = state.drivers.filter(d => d.department === dept);
+            sel.innerHTML = filtered.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            
+            if (curr && filtered.some(d => d.id === curr)) {
+                sel.value = curr;
+            } else if (filtered.length > 0 && !state.isCreatingDriver) {
+                sel.value = filtered[0].id;
+            }
+            
             window.dLoadData();
         };
 
@@ -1208,17 +1460,46 @@
             document.getElementById('d-other').value = d.other || '';
             document.getElementById('d-lic').value = d.licenses || '';
             document.getElementById('d-med').value = d.medical || '';
+
+            window.dToggleEdit(false);
         };
 
-        window.dCreateNew = () => { document.getElementById('d-select').value = ''; window.dLoadData(); };
+        window.dCreateNew = () => { 
+            state.isCreatingDriver = true;
+            document.getElementById('d-select').value = ''; 
+            document.getElementById('d-id').value = '';
+            document.getElementById('d-name').value = '';
+            document.getElementById('d-gender').value = '男';
+            document.getElementById('d-dept').value = '';
+            document.getElementById('d-phone').value = '';
+            document.getElementById('d-deputy').value = '';
+            document.getElementById('d-other').value = '';
+            document.getElementById('d-lic').value = '';
+            document.getElementById('d-med').value = '';
+
+            document.getElementById('d-btn-cancel-create').classList.remove('hidden');
+            document.getElementById('d-btn-create').classList.add('hidden');
+            
+            window.dToggleEdit(true);
+        };
+
+        window.dCancelCreate = () => {
+            state.isCreatingDriver = false;
+            document.getElementById('d-btn-cancel-create').classList.add('hidden');
+            document.getElementById('d-btn-create').classList.remove('hidden');
+            window.dRenderDeptSelect(); 
+        };
+
         window.dSave = () => {
             const name = document.getElementById('d-name').value;
             if(!name) return showToast('請輸入司機姓名', 'error');
             const newId = document.getElementById('d-id').value || `D${Date.now()}`;
+            const department = document.getElementById('d-dept').value;
+            
             const data = {
                 id: newId,
                 name, gender: document.getElementById('d-gender').value,
-                department: document.getElementById('d-dept').value,
+                department: department,
                 phone: document.getElementById('d-phone').value,
                 deputy: document.getElementById('d-deputy').value,
                 other: document.getElementById('d-other').value,
@@ -1226,24 +1507,56 @@
                 medical: document.getElementById('d-med').value,
             };
             
-            const sel = document.getElementById('d-select');
-            if(!Array.from(sel.options).some(o => o.value === newId)) {
-                sel.add(new Option('temp', newId));
-            }
-            sel.value = newId;
-
+            state.isCreatingDriver = false;
             window.saveToDb('drivers', data);
-            showToast('人事資料已儲存');
+            
+            document.getElementById('d-btn-cancel-create').classList.add('hidden');
+            document.getElementById('d-btn-create').classList.remove('hidden');
+            window.dToggleEdit(false);
+            
+            setTimeout(() => {
+                const deptSel = document.getElementById('d-dept-select');
+                if(!Array.from(deptSel.options).some(o => o.value === department)) {
+                    deptSel.add(new Option(department, department));
+                }
+                deptSel.value = department;
+                window.dRenderSelect(newId);
+            }, 100);
+
+            showToast('人事資料已成功儲存');
         };
 
-        window.venRenderSelect = () => {
-            const sel = document.getElementById('ven-select');
-            const curr = sel.value;
-            sel.innerHTML = state.vendors.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
-            if(!curr && state.vendors.length) sel.value = state.vendors[0].id;
-            else if(curr) sel.value = curr;
+        // --- Vendor Logic ---
+        window.venToggleEdit = (isEdit) => {
+            toggleFormInputs('ven-form', isEdit);
+            if (isEdit) {
+                document.getElementById('ven-btn-edit').classList.add('hidden');
+                document.getElementById('ven-btn-save').classList.remove('hidden');
+                if(!state.isCreatingVendor) document.getElementById('ven-btn-cancel-edit').classList.remove('hidden');
+            } else {
+                document.getElementById('ven-btn-edit').classList.remove('hidden');
+                document.getElementById('ven-btn-save').classList.add('hidden');
+                document.getElementById('ven-btn-cancel-edit').classList.add('hidden');
+            }
+        };
+
+        window.venCancelEdit = () => {
             window.venLoadData();
         };
+
+        window.venRenderSelect = (forceId = null) => {
+            if(document.getElementById('view-vendor').classList.contains('hidden')) return;
+            const sel = document.getElementById('ven-select');
+            let curr = forceId || sel.value;
+            if (state.isCreatingVendor) curr = '';
+            
+            sel.innerHTML = state.vendors.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+            if(curr && state.vendors.some(v=>v.id===curr)) sel.value = curr;
+            else if(state.vendors.length && !state.isCreatingVendor) sel.value = state.vendors[0].id;
+            
+            window.venLoadData();
+        };
+
         window.venLoadData = () => {
             const id = document.getElementById('ven-select').value;
             const v = state.vendors.find(x => x.id === id) || {};
@@ -1258,8 +1571,38 @@
             document.getElementById('ven-a1').value = v.address1 || '';
             document.getElementById('ven-a2').value = v.address2 || '';
             document.getElementById('ven-notes').value = v.notes || '';
+
+            window.venToggleEdit(false);
         };
-        window.venCreateNew = () => { document.getElementById('ven-select').value = ''; window.venLoadData(); };
+
+        window.venCreateNew = () => { 
+            state.isCreatingVendor = true;
+            document.getElementById('ven-select').value = ''; 
+            document.getElementById('ven-id').value = '';
+            document.getElementById('ven-name').value = '';
+            document.getElementById('ven-nature').value = '';
+            document.getElementById('ven-owner').value = '';
+            document.getElementById('ven-contact').value = '';
+            document.getElementById('ven-fax').value = '';
+            document.getElementById('ven-p1').value = '';
+            document.getElementById('ven-p2').value = '';
+            document.getElementById('ven-a1').value = '';
+            document.getElementById('ven-a2').value = '';
+            document.getElementById('ven-notes').value = '';
+
+            document.getElementById('ven-btn-cancel-create').classList.remove('hidden');
+            document.getElementById('ven-btn-create').classList.add('hidden');
+            
+            window.venToggleEdit(true);
+        };
+
+        window.venCancelCreate = () => {
+            state.isCreatingVendor = false;
+            document.getElementById('ven-btn-cancel-create').classList.add('hidden');
+            document.getElementById('ven-btn-create').classList.remove('hidden');
+            window.venRenderSelect();
+        };
+
         window.venSave = () => {
             const name = document.getElementById('ven-name').value;
             if(!name) return showToast('請輸入廠商名稱', 'error');
@@ -1273,17 +1616,23 @@
                 notes: document.getElementById('ven-notes').value
             };
             
-            const sel = document.getElementById('ven-select');
-            if(!Array.from(sel.options).some(o => o.value === newId)) {
-                sel.add(new Option('temp', newId));
-            }
-            sel.value = newId;
-
+            state.isCreatingVendor = false;
             window.saveToDb('vendors', data);
+            
+            document.getElementById('ven-btn-cancel-create').classList.add('hidden');
+            document.getElementById('ven-btn-create').classList.remove('hidden');
+            window.venToggleEdit(false);
+            
+            setTimeout(() => {
+                window.venRenderSelect(newId);
+            }, 100);
+
             showToast('廠商資料已儲存');
         };
 
+        // --- Dispatch Logic ---
         window.dispRenderSelectors = () => {
+            if(document.getElementById('view-dispatch').classList.contains('hidden')) return;
             const dSel = document.getElementById('disp-driver');
             const vSel = document.getElementById('disp-vendor');
             
@@ -1343,13 +1692,15 @@
             document.getElementById('disp-vendor').value = d.vendorId;
             window.dispCalcTime();
             
-            document.getElementById('disp-form-panel').className = "p-8 rounded-3xl border shadow-2xl transition-all bg-indigo-900/40 border-indigo-500/50";
-            document.getElementById('disp-form-title').innerHTML = `<i data-lucide="edit-2" class="w-6 h-6 mr-3 text-indigo-400"></i> 修改派車排程`;
+            document.getElementById('disp-form-panel').className = "p-5 md:p-8 rounded-2xl md:rounded-3xl border shadow-2xl transition-all bg-indigo-900/40 border-indigo-500/50 xl:mt-0";
+            document.getElementById('disp-form-title').innerHTML = `<i data-lucide="edit-2" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-indigo-400"></i> 修改派車排程`;
             document.getElementById('disp-save-btn').innerText = "儲存修改";
-            document.getElementById('disp-save-btn').className = "w-full font-bold text-lg py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-indigo-900/50";
+            document.getElementById('disp-save-btn').className = "col-span-1 sm:col-span-2 xl:col-span-1 w-full font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-indigo-900/50";
             document.getElementById('disp-cancel-btn').classList.remove('hidden');
             lucide.createIcons();
             window.renderCalendar();
+            
+            document.getElementById('view-dispatch').scrollTo({ top: 0, behavior: 'smooth' });
         };
 
         window.dispCancelEdit = () => {
@@ -1358,10 +1709,10 @@
             document.getElementById('disp-end').value = '11:00';
             window.dispCalcTime();
             
-            document.getElementById('disp-form-panel').className = "p-8 rounded-3xl border shadow-2xl transition-all glass-panel border-white/10";
-            document.getElementById('disp-form-title').innerHTML = `<i data-lucide="calendar-clock" class="w-6 h-6 mr-3 text-violet-400"></i> 登記派車`;
+            document.getElementById('disp-form-panel').className = "p-5 md:p-8 rounded-2xl md:rounded-3xl border shadow-2xl transition-all glass-panel border-white/10 xl:mt-0";
+            document.getElementById('disp-form-title').innerHTML = `<i data-lucide="calendar-clock" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-violet-400"></i> 登記派車`;
             document.getElementById('disp-save-btn').innerText = "送出排程";
-            document.getElementById('disp-save-btn').className = "w-full font-bold text-lg py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-purple-900/50";
+            document.getElementById('disp-save-btn').className = "col-span-1 sm:col-span-2 xl:col-span-1 w-full font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-purple-900/50";
             document.getElementById('disp-cancel-btn').classList.add('hidden');
             lucide.createIcons();
             window.renderCalendar();
@@ -1377,6 +1728,7 @@
         };
 
         window.renderCalendar = () => {
+            if(document.getElementById('view-dispatch').classList.contains('hidden')) return;
             const year = state.currentMonth.getFullYear();
             const month = state.currentMonth.getMonth();
             document.getElementById('cal-title').innerText = `${year} 年 ${month + 1} 月`;
@@ -1389,7 +1741,7 @@
             
             let html = '';
             for (let i = 0; i < firstDay; i++) {
-                html += `<div class="bg-slate-800/20 rounded-2xl border border-transparent"></div>`;
+                html += `<div class="bg-slate-800/20 rounded-xl md:rounded-2xl border border-transparent"></div>`;
             }
             
             for (let day = 1; day <= daysInMonth; day++) {
@@ -1409,22 +1761,25 @@
                     const eventClass = `${d.color} ${isEdit ? 'ring-2 ring-white scale-[1.02] shadow-xl' : 'opacity-90 hover:opacity-100'}`;
                     
                     return `
-                        <div onclick="dispEdit('${d.id}')" class="${eventClass} text-white rounded-xl p-2 cursor-pointer transition-all group flex flex-col relative no-select">
-                            <div class="font-bold truncate text-[13px] leading-tight mb-0.5">${drv} <span class="font-normal opacity-80">(${d.hours}h)</span></div>
-                            <div class="text-[11px] truncate opacity-80 leading-tight">${ven}</div>
-                            <button onclick="openDeleteModal(event, 'dispatches', '${d.id}')" class="absolute top-1.5 right-1.5 p-1 rounded-full bg-slate-900/50 hover:bg-rose-500 opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-10">
+                        <div onclick="dispEdit('${d.id}')" class="${eventClass} text-white rounded-lg md:rounded-xl p-1.5 md:p-2 cursor-pointer transition-all group flex flex-col relative no-select">
+                            <div class="font-bold truncate text-[11px] md:text-[13px] leading-tight mb-0.5">${drv} <span class="font-normal opacity-80">(${d.hours}h)</span></div>
+                            <div class="text-[10px] md:text-[11px] truncate opacity-80 leading-tight">${ven}</div>
+                            <button onclick="openDeleteModal(event, 'dispatches', '${d.id}')" class="absolute top-1 right-1 md:top-1.5 md:right-1.5 p-1 rounded-full bg-slate-900/50 hover:bg-rose-500 opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-10 hidden md:block">
                                 <i data-lucide="x" class="w-3 h-3 text-white"></i>
+                            </button>
+                            <button onclick="openDeleteModal(event, 'dispatches', '${d.id}')" class="absolute top-1 right-1 p-0.5 rounded-full bg-rose-500/80 md:hidden z-10">
+                                <i data-lucide="x" class="w-2.5 h-2.5 text-white"></i>
                             </button>
                         </div>
                     `;
                 }).join('');
 
                 html += `
-                    <div class="border rounded-2xl p-2.5 flex flex-col overflow-hidden transition-colors ${cellClass}">
-                        <span class="text-sm font-bold mb-2 w-8 h-8 flex items-center justify-center rounded-full ${dayNumClass}">
+                    <div class="border rounded-xl md:rounded-2xl p-1.5 md:p-2.5 flex flex-col overflow-hidden transition-colors ${cellClass}">
+                        <span class="text-xs md:text-sm font-bold mb-1 md:mb-2 w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full ${dayNumClass}">
                             ${day}
                         </span>
-                        <div class="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-1">
+                        <div class="flex-1 overflow-y-auto space-y-1.5 md:space-y-2 custom-scrollbar pr-1">
                             ${eventsHtml}
                         </div>
                     </div>
@@ -1492,3 +1847,6 @@
     </script>
 </body>
 </html>
+
+
+```
