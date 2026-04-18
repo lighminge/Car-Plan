@@ -15,7 +15,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
-    <!-- 🚨 引入 Firebase App Check SDK -->
+    <!-- 🚨 引入 Firebase App Check SDK (防機器人/保護資料庫) -->
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-check-compat.js"></script>
 
     <!-- Google Fonts -->
@@ -92,6 +92,9 @@
         
         /* 確保 iOS 不會強制放大輸入框 */
         input, select, textarea { font-size: 16px !important; }
+        
+        /* 確保 reCAPTCHA 圖示層級不會被覆蓋 */
+        .grecaptcha-badge { z-index: 999 !important; }
     </style>
 </head>
 <body class="text-slate-100 flex flex-col relative tech-bg">
@@ -292,7 +295,7 @@
                             </div>
                         </div>
 
-                        <!-- 歷史表格 -->
+                        <!-- 歷史表格防擠壓橫向捲動 -->
                         <div class="overflow-x-auto rounded-2xl border border-slate-700 custom-scrollbar">
                             <table class="w-full text-left border-collapse min-w-[600px]">
                                 <thead>
@@ -616,16 +619,20 @@
 
         // 🚨 App Check 整合設定 (防機器人/確保 Github Pages 安全)
         try {
+            // 開發環境自動啟用 Debug Token，避免開發者在自己電腦上測試時被防護機制阻擋
+            if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
+                self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+                console.log("🛠️ App Check 本機 Debug 模式已啟用");
+            }
+
             const RECAPTCHA_SITE_KEY = "6Lf8j70sAAAAABP5S5I9W_x0MwtXjx7ZuRsX8uP1"; 
             
-            if (RECAPTCHA_SITE_KEY && !RECAPTCHA_SITE_KEY.includes("請填入")) {
-                const appCheck = firebase.appCheck();
-                appCheck.activate({
-                    provider: new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
-                    isTokenAutoRefreshEnabled: true
-                });
-                console.log("🔒 Firebase App Check 已啟動");
-            }
+            const appCheck = firebase.appCheck();
+            appCheck.activate({
+                provider: new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+                isTokenAutoRefreshEnabled: true
+            });
+            console.log("🔒 Firebase App Check (reCAPTCHA v3) 已成功啟動！您應該會看到右下角出現驗證圖示。");
         } catch (e) {
             console.warn("App Check 初始化略過或失敗:", e);
         }
@@ -635,7 +642,7 @@
 
         // --- 本地端極速快取機制 ---
         let useLocalMode = false;
-        const CACHE_KEY = 'dispatch_system_cache_v12';
+        const CACHE_KEY = 'dispatch_system_cache_v13';
         
         const loadLocalCache = () => {
             try {
