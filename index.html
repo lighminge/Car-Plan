@@ -275,14 +275,13 @@
                             </div>
                         </div>
 
-                        <!-- 歷史表格工具列 (過濾 & 分頁 & 總計) -->
+                        <!-- 歷史表格工具列 -->
                         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 space-y-3 lg:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
                             <div class="flex items-center space-x-2 w-full lg:w-auto">
                                 <label class="text-sm text-slate-400 font-medium shrink-0"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>年月篩選：</label>
                                 <input type="month" id="v-f-filter-month" onchange="vFilterChange('fuel')" class="flex-1 sm:w-auto bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
                                 <button onclick="vClearFilter('fuel')" class="p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white shrink-0 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
                             </div>
-                            <!-- 總計資訊 -->
                             <div class="flex items-center justify-between sm:justify-center w-full lg:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 lg:mx-4 shadow-inner">
                                 <span class="text-slate-400">當前篩選共 <span id="v-f-summary-count" class="text-cyan-400 font-bold text-base px-1">0</span> 筆</span>
                                 <span class="text-slate-600 hidden sm:inline mx-3">|</span>
@@ -295,7 +294,7 @@
                             </div>
                         </div>
 
-                        <!-- 歷史表格防擠壓橫向捲動 -->
+                        <!-- 歷史表格 -->
                         <div class="overflow-x-auto rounded-2xl border border-slate-700 custom-scrollbar">
                             <table class="w-full text-left border-collapse min-w-[600px]">
                                 <thead>
@@ -334,7 +333,6 @@
                                     <label class="text-sm text-cyan-400 font-bold tracking-wider flex items-center"><i data-lucide="clipboard-list" class="w-4 h-4 mr-2"></i> 更換明細與報價</label>
                                 </div>
                                 
-                                <!-- 修改時背景會變色 -->
                                 <div id="v-m-item-input-area" class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 mb-4 bg-slate-800/80 p-3 md:p-4 rounded-xl border border-slate-600 transition-colors duration-300">
                                     <input type="text" id="v-m-new-item-name" placeholder="輸入項目名稱..." class="w-full sm:flex-1 bg-slate-900/80 sm:bg-transparent border border-slate-600 sm:border-none p-3 text-white outline-none focus:border-cyan-500 sm:focus:ring-0 rounded-lg sm:rounded-none min-w-0 transition-colors">
                                     <div class="flex space-x-2 w-full sm:w-auto shrink-0">
@@ -363,14 +361,13 @@
                             </div>
                         </div>
 
-                        <!-- 歷史表格工具列 (過濾 & 分頁 & 總計) -->
+                        <!-- 歷史表格工具列 -->
                         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 space-y-3 lg:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
                             <div class="flex items-center space-x-2 w-full lg:w-auto">
                                 <label class="text-sm text-slate-400 font-medium shrink-0"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>年月篩選：</label>
                                 <input type="month" id="v-m-filter-month" onchange="vFilterChange('main')" class="flex-1 sm:w-auto bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
                                 <button onclick="vClearFilter('main')" class="p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white shrink-0 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
                             </div>
-                            <!-- 總計資訊 -->
                             <div class="flex items-center justify-between sm:justify-center w-full lg:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 lg:mx-4 shadow-inner">
                                 <span class="text-slate-400">當前篩選共 <span id="v-m-summary-count" class="text-cyan-400 font-bold text-base px-1">0</span> 筆</span>
                                 <span class="text-slate-600 hidden sm:inline mx-3">|</span>
@@ -383,7 +380,7 @@
                             </div>
                         </div>
 
-                        <!-- 歷史表格防擠壓橫向捲動 -->
+                        <!-- 歷史表格 -->
                         <div class="overflow-x-auto rounded-2xl border border-slate-700 custom-scrollbar">
                             <table class="w-full text-left border-collapse min-w-[800px]">
                                 <thead>
@@ -619,20 +616,24 @@
 
         // 🚨 App Check 整合設定 (防機器人/確保 Github Pages 安全)
         try {
-            // 開發環境自動啟用 Debug Token，避免開發者在自己電腦上測試時被防護機制阻擋
-            if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
+            // 判斷是否為正式環境 (Github Pages 或 Firebase Hosting)
+            const isProd = window.location.hostname.includes("github.io") || window.location.hostname.includes("firebaseapp.com");
+            
+            if (!isProd) {
+                // 如果是在測試預覽環境 (Canvas) 或是本機端，強制啟動 Debug 模式，避免 reCAPTCHA 因網域未授權而報錯
                 self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-                console.log("🛠️ App Check 本機 Debug 模式已啟用");
+                console.log("🛠️ 測試環境偵測：已啟用 App Check Debug 模式以避免 reCAPTCHA 網域報錯。");
             }
 
             const RECAPTCHA_SITE_KEY = "6Lf8j70sAAAAABP5S5I9W_x0MwtXjx7ZuRsX8uP1"; 
-            
             const appCheck = firebase.appCheck();
-            appCheck.activate({
-                provider: new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
-                isTokenAutoRefreshEnabled: true
-            });
-            console.log("🔒 Firebase App Check (reCAPTCHA v3) 已成功啟動！您應該會看到右下角出現驗證圖示。");
+            
+            // 必須傳入 ReCaptchaV3Provider 物件，否則會發生 getToken is not a function 錯誤
+            appCheck.activate(
+                new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), 
+                true
+            );
+            console.log("🔒 Firebase App Check (reCAPTCHA v3) 已成功啟動！");
         } catch (e) {
             console.warn("App Check 初始化略過或失敗:", e);
         }
@@ -711,7 +712,10 @@
             if(viewId === 'vehicle') window.vRenderSelect();
             if(viewId === 'driver') window.dRenderDeptSelect();
             if(viewId === 'vendor') window.venRenderSelect();
-            if(viewId === 'dispatch') window.dispRenderSelectors();
+            if(viewId === 'dispatch') {
+                window.dispRenderSelectors();
+                window.renderCalendar();
+            }
         };
 
         window.showToast = (msg, type = 'success') => {
