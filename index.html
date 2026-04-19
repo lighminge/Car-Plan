@@ -17,6 +17,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
     <!-- 引入 Firebase App Check SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-check-compat.js"></script>
+    <!-- 追加 SheetJS 用於 Excel 匯出 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -60,17 +62,18 @@
             cursor: pointer;
         }
 
-        /* 唯讀模式表單樣式 */
+        /* 唯讀模式表單樣式 (加強標註欄位外框與底色，讓查看模式更清晰) */
         .readonly-form input:disabled, 
         .readonly-form select:disabled, 
         .readonly-form textarea:disabled {
-            background-color: transparent !important;
-            border-color: transparent !important;
+            background-color: rgba(30, 41, 59, 0.6) !important; /* bg-slate-800/60 */
+            border: 1px solid rgba(71, 85, 105, 0.5) !important; /* border-slate-600/50 */
+            border-radius: 0.75rem !important; /* rounded-xl */
             color: #f1f5f9 !important;
-            box-shadow: none !important;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05) !important;
             -webkit-appearance: none !important;
             appearance: none !important;
-            padding-left: 0 !important;
+            padding-left: 0.875rem !important; /* 恢復內距，看起來像實體欄位 */
             opacity: 1 !important; 
             cursor: default !important;
         }
@@ -168,6 +171,20 @@
             </div>
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-12 max-w-7xl w-full pb-10">
+                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('dispatch')">
+                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center shadow-xl shadow-violet-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
+                        <i data-lucide="calendar-clock" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
+                    </div>
+                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">派車排程</span>
+                </div>
+
+                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('daily')">
+                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-pink-500 to-rose-400 flex items-center justify-center shadow-xl shadow-rose-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
+                        <i data-lucide="printer" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
+                    </div>
+                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors text-amber-400">單日派車單</span>
+                </div>
+
                 <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('vehicle')">
                     <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-xl shadow-blue-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
                         <i data-lucide="car" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
@@ -187,20 +204,6 @@
                         <i data-lucide="building-2" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
                     </div>
                     <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">廠商管理</span>
-                </div>
-                
-                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('dispatch')">
-                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center shadow-xl shadow-violet-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
-                        <i data-lucide="calendar-clock" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
-                    </div>
-                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">派車排程</span>
-                </div>
-
-                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('daily')">
-                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-pink-500 to-rose-400 flex items-center justify-center shadow-xl shadow-rose-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
-                        <i data-lucide="printer" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
-                    </div>
-                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors text-amber-400">單日派車單</span>
                 </div>
             </div>
         </div>
@@ -285,18 +288,28 @@
                                 <button id="v-f-btn-save" onclick="vSaveFuel()" class="col-span-2 sm:col-span-1 flex w-full sm:w-auto justify-center items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存</button>
                             </div>
                         </div>
-                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 space-y-3 lg:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
-                            <div class="flex items-center space-x-2 w-full lg:w-auto">
+                        
+                        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-3 space-y-3 xl:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
+                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
                                 <label class="text-sm text-slate-400 font-medium shrink-0"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>年月篩選：</label>
-                                <input type="month" id="v-f-filter-month" onchange="vFilterChange('fuel')" class="flex-1 sm:w-auto bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
+                                <input type="month" id="v-f-filter-month" onchange="vFilterChange('fuel')" class="bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
                                 <button onclick="vClearFilter('fuel')" class="p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white shrink-0 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
                             </div>
-                            <div class="flex items-center justify-between sm:justify-center w-full lg:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 lg:mx-4 shadow-inner">
+                            
+                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto bg-slate-900/50 p-1.5 rounded-lg border border-slate-600 shadow-inner">
+                                <label class="text-sm text-emerald-400 font-medium shrink-0 pl-1"><i data-lucide="file-spreadsheet" class="w-4 h-4 inline mr-1"></i>Excel 匯出：</label>
+                                <input type="month" id="v-f-export-start" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
+                                <span class="text-slate-500">-</span>
+                                <input type="month" id="v-f-export-end" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
+                                <button onclick="exportExcel('fuel')" class="p-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 rounded-md text-white transition flex items-center text-sm font-bold shadow-lg"><i data-lucide="download" class="w-4 h-4 mr-1"></i>匯出</button>
+                            </div>
+
+                            <div class="flex items-center justify-between sm:justify-center w-full xl:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 xl:mx-4 shadow-inner">
                                 <span class="text-slate-400">當前篩選共 <span id="v-f-summary-count" class="text-cyan-400 font-bold text-base px-1">0</span> 筆</span>
                                 <span class="text-slate-600 hidden sm:inline mx-3">|</span>
                                 <span class="text-slate-400">總花費 <span id="v-f-summary-cost" class="text-amber-400 font-bold text-base px-1">$0</span></span>
                             </div>
-                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full lg:w-auto justify-end">
+                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full xl:w-auto justify-end">
                                 <button onclick="vChangePage('fuel', -1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
                                 <span id="v-f-page-info" class="font-bold tracking-wider w-12 text-center text-cyan-400">1 / 1</span>
                                 <button onclick="vChangePage('fuel', 1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
@@ -359,18 +372,28 @@
                                 <button id="v-m-btn-save" onclick="vSaveMain()" class="col-span-2 sm:col-span-1 flex w-full sm:w-auto justify-center items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50"><i data-lucide="check" class="w-5 h-5 mr-2"></i> 確認儲存保養單</button>
                             </div>
                         </div>
-                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 space-y-3 lg:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
-                            <div class="flex items-center space-x-2 w-full lg:w-auto">
+                        
+                        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-3 space-y-3 xl:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
+                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
                                 <label class="text-sm text-slate-400 font-medium shrink-0"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>年月篩選：</label>
-                                <input type="month" id="v-m-filter-month" onchange="vFilterChange('main')" class="flex-1 sm:w-auto bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
+                                <input type="month" id="v-m-filter-month" onchange="vFilterChange('main')" class="bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
                                 <button onclick="vClearFilter('main')" class="p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white shrink-0 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
                             </div>
-                            <div class="flex items-center justify-between sm:justify-center w-full lg:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 lg:mx-4 shadow-inner">
+
+                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto bg-slate-900/50 p-1.5 rounded-lg border border-slate-600 shadow-inner">
+                                <label class="text-sm text-emerald-400 font-medium shrink-0 pl-1"><i data-lucide="file-spreadsheet" class="w-4 h-4 inline mr-1"></i>Excel 匯出：</label>
+                                <input type="month" id="v-m-export-start" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
+                                <span class="text-slate-500">-</span>
+                                <input type="month" id="v-m-export-end" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
+                                <button onclick="exportExcel('main')" class="p-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 rounded-md text-white transition flex items-center text-sm font-bold shadow-lg"><i data-lucide="download" class="w-4 h-4 mr-1"></i>匯出</button>
+                            </div>
+
+                            <div class="flex items-center justify-between sm:justify-center w-full xl:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 xl:mx-4 shadow-inner">
                                 <span class="text-slate-400">當前篩選共 <span id="v-m-summary-count" class="text-cyan-400 font-bold text-base px-1">0</span> 筆</span>
                                 <span class="text-slate-600 hidden sm:inline mx-3">|</span>
                                 <span class="text-slate-400">總花費 <span id="v-m-summary-cost" class="text-amber-400 font-bold text-base px-1">$0</span></span>
                             </div>
-                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full lg:w-auto justify-end">
+                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full xl:w-auto justify-end">
                                 <button onclick="vChangePage('main', -1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
                                 <span id="v-m-page-info" class="font-bold tracking-wider w-12 text-center text-cyan-400">1 / 1</span>
                                 <button onclick="vChangePage('main', 1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
@@ -974,8 +997,15 @@
             if (isResetFilter) {
                 const today = new Date();
                 const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                
                 document.getElementById('v-f-filter-month').value = defaultMonth;
                 document.getElementById('v-m-filter-month').value = defaultMonth;
+                
+                document.getElementById('v-f-export-start').value = defaultMonth;
+                document.getElementById('v-f-export-end').value = defaultMonth;
+                document.getElementById('v-m-export-start').value = defaultMonth;
+                document.getElementById('v-m-export-end').value = defaultMonth;
+
                 window.vFilter.fuelPage = 1;
                 window.vFilter.mainPage = 1;
             }
@@ -1979,6 +2009,66 @@
             }
             window.closeModal();
             showToast('已成功刪除紀錄');
+        };
+
+        // --- Excel 匯出功能 ---
+        window.exportExcel = (type) => {
+            const vid = document.getElementById('v-select').value;
+            const v = state.vehicles.find(x => x.id === vid);
+            if(!v) return showToast('無車輛資料', 'error');
+            
+            const startMonth = document.getElementById(`v-${type === 'fuel' ? 'f' : 'm'}-export-start`).value;
+            const endMonth = document.getElementById(`v-${type === 'fuel' ? 'f' : 'm'}-export-end`).value;
+            
+            if(!startMonth || !endMonth) return showToast('請選擇完整的開始與結束年月', 'error');
+            if(startMonth > endMonth) return showToast('開始年月不能大於結束年月', 'error');
+
+            let logs = type === 'fuel' ? (v.fuelLogs || []) : (v.maintenanceLogs || []);
+            
+            logs = logs.filter(l => {
+                const logMonth = l.date.substring(0, 7); 
+                return logMonth >= startMonth && logMonth <= endMonth;
+            });
+
+            if(logs.length === 0) return showToast('該區間內無資料可匯出', 'error');
+
+            // 依照日期排序 (舊到新，方便 Excel 閱讀)
+            logs.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            let ws_data = [];
+            if(type === 'fuel') {
+                ws_data.push(["加油日期", "加油時里程", "油料種類", "公升數", "費用(元)"]);
+                logs.forEach(l => {
+                    ws_data.push([l.date, l.preMileage, l.type, l.liters, l.cost]);
+                });
+            } else {
+                ws_data.push(["保養日期", "保養目的", "保養車廠", "是否換零件", "更換明細與報價", "總額(元)", "保養時里程", "車廠建議事項"]);
+                logs.forEach(l => {
+                    let itemsStr = (l.items || []).map(i => `${i.name} ($${Number(i.price).toLocaleString()})`).join('、');
+                    ws_data.push([l.date, l.purpose, l.garage, l.changedParts, itemsStr, l.totalCost, l.preMileage, l.suggestion]);
+                });
+            }
+
+            try {
+                // 使用 SheetJS 產生 Excel
+                const ws = XLSX.utils.aoa_to_sheet(ws_data);
+                
+                // 設定欄寬
+                const wscols = type === 'fuel' ? 
+                    [{wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}] : 
+                    [{wch:15}, {wch:20}, {wch:20}, {wch:12}, {wch:50}, {wch:15}, {wch:15}, {wch:30}];
+                ws['!cols'] = wscols;
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "匯出資料");
+                
+                const fileName = `${v.plate}_${type === 'fuel' ? '加油紀錄' : '保養紀錄'}_${startMonth}_至_${endMonth}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                showToast('Excel 檔案已成功匯出！');
+            } catch (err) {
+                console.error("Excel Export Error:", err);
+                showToast('匯出失敗，請確認是否載入擴充套件', 'error');
+            }
         };
 
         window.addEventListener('DOMContentLoaded', init);
