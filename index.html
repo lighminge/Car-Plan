@@ -249,13 +249,17 @@
                         <input type="hidden" id="v-reg-id">
                         <div id="v-form" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-6 relative z-10 readonly-form pb-4">
                             <div><label class="block text-sm text-slate-400 mb-1.5">車牌號碼</label><input type="text" id="v-reg-plate" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-cyan-400 font-bold text-lg md:text-xl outline-none focus:border-cyan-500 transition-all"></div>
+                            
                             <div><label class="block text-sm text-slate-400 mb-1.5">車輛類型</label>
                                 <select id="v-reg-type" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"><option>貨車</option><option>小客車</option></select>
                             </div>
+                            
                             <div><label class="block text-sm text-slate-400 mb-1.5">車輛廠牌</label><input type="text" id="v-reg-brand" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"></div>
                             <div><label class="block text-sm text-slate-400 mb-1.5">車輛型號</label><input type="text" id="v-reg-model" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"></div>
+                            
                             <div><label class="block text-sm text-slate-400 mb-1.5">購買年月</label><input type="date" id="v-reg-purchase-date" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"></div>
                             <div><label class="block text-sm text-slate-400 mb-1.5">購買金額</label><input type="number" id="v-reg-purchase-cost" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all" placeholder="例如：1200000"></div>
+                            
                             <div><label class="block text-sm text-slate-400 mb-1.5">使用油料</label>
                                 <select id="v-reg-fuelType" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-cyan-500 transition-all"><option>柴油</option><option>92無鉛</option><option>95無鉛</option><option>98無鉛</option></select>
                             </div>
@@ -474,7 +478,8 @@
                 <div class="glass-panel rounded-2xl md:rounded-3xl border border-white/10 shadow-2xl p-5 md:p-8 relative">
                     <input type="hidden" id="ven-id">
                     <div id="ven-form" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-6 readonly-form pb-4">
-                        <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">廠商名稱</label><input type="text" id="ven-name" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-xl md:text-2xl font-bold text-amber-400 outline-none focus:border-amber-500 transition-all"></div>
+                        <div class="col-span-1 md:col-span-1"><label class="block text-sm text-slate-400 mb-1.5">廠商名稱</label><input type="text" id="ven-name" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-xl md:text-2xl font-bold text-amber-400 outline-none focus:border-amber-500 transition-all"></div>
+                        <div class="col-span-1 md:col-span-1"><label class="block text-sm text-slate-400 mb-1.5">統一編號</label><input type="text" id="ven-taxId" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-xl md:text-2xl font-bold text-amber-400 outline-none focus:border-amber-500 transition-all"></div>
                         <div><label class="block text-sm text-slate-400 mb-1.5">廠商加工性質</label><input type="text" id="ven-nature" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
                         <div><label class="block text-sm text-slate-400 mb-1.5">負責人</label><input type="text" id="ven-owner" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
                         <div><label class="block text-sm text-slate-400 mb-1.5">聯絡人</label><input type="text" id="ven-contact" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-amber-500 transition-all"></div>
@@ -652,7 +657,7 @@
 
         // --- 本地端極速快取機制 ---
         let useLocalMode = false;
-        const CACHE_KEY = 'dispatch_system_cache_v15';
+        const CACHE_KEY = 'dispatch_system_cache_v16'; // 更新版號
         
         const loadLocalCache = () => {
             try {
@@ -702,7 +707,7 @@
             { id: 'D002', name: '李小華', gender: '女', department: '物流二部', phone: '0987-654-321', deputy: '王大明', licenses: '職業小客車', medical: '無', other: '' }
         ];
         const initialVendors = [
-            { id: 'V001', name: '永續科技', nature: '零件', address1: '信義區', address2: '', phone1: '02-2345-6789', phone2: '', fax: '', owner: '張', contact: '陳', notes: '' }
+            { id: 'V001', name: '永續科技', taxId: '87654321', nature: '零件', address1: '信義區', address2: '', phone1: '02-2345-6789', phone2: '', fax: '', owner: '張', contact: '陳', notes: '' }
         ];
         const initialVehicles = [
             { id: 'C001', type: '貨車', plate: 'ABC-1234', brand: 'Toyota', model: 'Hino 300', purchaseDate: '2020-05-15', purchaseCost: 1200000, fuelType: '柴油', isScrapped: '否', scrapDate: '', totalMileage: 150000, notes: '', fuelLogs: [], maintenanceLogs: [] }
@@ -967,8 +972,10 @@
             window.vCancelMainEdit();
 
             if (isResetFilter) {
-                document.getElementById('v-f-filter-month').value = '';
-                document.getElementById('v-m-filter-month').value = '';
+                const today = new Date();
+                const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                document.getElementById('v-f-filter-month').value = defaultMonth;
+                document.getElementById('v-m-filter-month').value = defaultMonth;
                 window.vFilter.fuelPage = 1;
                 window.vFilter.mainPage = 1;
             }
@@ -1602,6 +1609,7 @@
             const v = state.vendors.find(x => x.id === id) || {};
             document.getElementById('ven-id').value = v.id || '';
             document.getElementById('ven-name').value = v.name || '';
+            document.getElementById('ven-taxId').value = v.taxId || '';
             document.getElementById('ven-nature').value = v.nature || '';
             document.getElementById('ven-owner').value = v.owner || '';
             document.getElementById('ven-contact').value = v.contact || '';
@@ -1620,6 +1628,7 @@
             document.getElementById('ven-select').value = ''; 
             document.getElementById('ven-id').value = '';
             document.getElementById('ven-name').value = '';
+            document.getElementById('ven-taxId').value = '';
             document.getElementById('ven-nature').value = '';
             document.getElementById('ven-owner').value = '';
             document.getElementById('ven-contact').value = '';
@@ -1649,6 +1658,7 @@
             const newId = document.getElementById('ven-id').value || `V${Date.now()}`;
             const data = {
                 id: newId, name,
+                taxId: document.getElementById('ven-taxId').value,
                 nature: document.getElementById('ven-nature').value, owner: document.getElementById('ven-owner').value,
                 contact: document.getElementById('ven-contact').value, fax: document.getElementById('ven-fax').value,
                 phone1: document.getElementById('ven-p1').value, phone2: document.getElementById('ven-p2').value,
@@ -1675,7 +1685,7 @@
         // 當開始小時變更時，自動更新結束小時
         window.onStartHourChange = () => {
             const startH = parseInt(document.getElementById('disp-start-h').value, 10);
-            let endH = (startH + 1) % 24; // 自動加 1 小時，跨夜則變 00
+            let endH = (startH + 1) % 24; 
             document.getElementById('disp-end-h').value = String(endH).padStart(2, '0');
             window.dispCalcTime();
         };
@@ -1702,7 +1712,7 @@
             const eh = Number(document.getElementById('disp-end-h').value);
             
             let diff = eh - sh;
-            if (diff <= 0) diff += 24; // 跨夜處理或相同時間當作 24 小時
+            if (diff <= 0) diff += 24; 
             document.getElementById('disp-hours').innerText = diff.toFixed(1);
         };
 
@@ -1745,7 +1755,7 @@
             document.getElementById('disp-vendor').value = d.vendorId;
             window.dispCalcTime();
             
-            document.getElementById('disp-form-panel').className = "p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-xl transition-all bg-indigo-900/40 border-indigo-500/50 mb-2 shrink-0";
+            document.getElementById('disp-form-panel').className = "p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-xl transition-all bg-indigo-900/40 border-indigo-500/50 mb-12 shrink-0";
             document.getElementById('disp-form-title').innerHTML = `<span class="flex items-center"><i data-lucide="edit-2" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-indigo-400"></i> 修改派車排程</span><span class="text-sm font-medium text-slate-400">排定時長: <span id="disp-hours" class="text-violet-400 font-bold text-xl ml-1">${d.hours}</span> <span class="text-sm text-slate-500">h</span></span>`;
             document.getElementById('disp-save-btn').innerText = "儲存修改";
             document.getElementById('disp-save-btn').className = "w-full font-bold text-sm md:text-base py-2.5 md:py-3 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-indigo-500 to-blue-500 text-white shadow-indigo-900/50";
@@ -1762,7 +1772,7 @@
             document.getElementById('disp-end-h').value = '10';
             window.dispCalcTime();
             
-            document.getElementById('disp-form-panel').className = "p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-xl transition-all glass-panel border-white/10 mb-2 shrink-0";
+            document.getElementById('disp-form-panel').className = "p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-xl transition-all glass-panel border-white/10 mb-12 shrink-0";
             document.getElementById('disp-form-title').innerHTML = `<span class="flex items-center"><i data-lucide="calendar-clock" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-violet-400"></i> 登記派車</span><span class="text-sm font-medium text-slate-400">排定時長: <span id="disp-hours" class="text-violet-400 font-bold text-xl ml-1">1.0</span> <span class="text-sm text-slate-500">h</span></span>`;
             document.getElementById('disp-save-btn').innerText = "送出排程";
             document.getElementById('disp-save-btn').className = "w-full font-bold text-sm md:text-base py-2.5 md:py-3 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-purple-900/50";
@@ -1815,20 +1825,20 @@
                     const drv = state.drivers.find(x => x.id === d.driverId)?.name || '未知';
                     const ven = state.vendors.find(x => x.id === d.vendorId)?.name || '未知';
                     const isEdit = state.editingDispatchId === d.id;
-                    const eventClass = `${d.color} ${isEdit ? 'ring-2 ring-white scale-[1.02] shadow-xl' : 'opacity-90 hover:opacity-100'}`;
                     
-                    // 月曆卡片：標明時間與總時長
+                    // 修正：使用亮眼琥珀色外框、加粗發光特效，移除會造成白底的 ring-white
+                    const eventClass = `${d.color} ${isEdit ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-slate-800 shadow-[0_0_15px_rgba(251,191,36,0.5)] z-20 brightness-110' : 'opacity-90 hover:opacity-100'}`;
                     const st = d.startTime || '';
                     
                     return `
-                        <div onclick="dispEdit('${d.id}')" class="${eventClass} text-white rounded-lg md:rounded-xl p-1.5 md:p-2 cursor-pointer transition-all group flex flex-col relative no-select">
+                        <div onclick="dispEdit('${d.id}')" class="${eventClass} text-white rounded-lg md:rounded-xl p-1.5 md:p-2 cursor-pointer transition-all group flex flex-col relative no-select mb-2">
                             <div class="font-bold truncate text-[11px] md:text-[13px] leading-tight mb-0.5">${st} - ${d.endTime}</div>
                             <div class="truncate text-[11px] md:text-[12px] opacity-90 leading-tight mb-0.5">${drv} <span class="text-amber-300 font-medium">(${d.hours}h)</span></div>
                             <div class="text-[10px] md:text-[11px] truncate opacity-70 leading-tight">${ven}</div>
-                            <button onclick="openDeleteModal(event, 'dispatches', '${d.id}')" class="absolute top-1.5 right-1.5 p-1 rounded-full bg-slate-900/50 hover:bg-rose-500 opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-10 hidden md:block">
+                            <button onclick="openDeleteModal(event, 'dispatches', '${d.id}')" class="absolute top-1.5 right-1.5 p-1 rounded-full bg-slate-900/50 hover:bg-rose-500 opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-30 hidden md:block">
                                 <i data-lucide="x" class="w-3 h-3 text-white"></i>
                             </button>
-                            <button onclick="openDeleteModal(event, 'dispatches', '${d.id}')" class="absolute top-1 right-1 p-0.5 rounded-full bg-rose-500/80 md:hidden z-10">
+                            <button onclick="openDeleteModal(event, 'dispatches', '${d.id}')" class="absolute top-1 right-1 p-0.5 rounded-full bg-rose-500/80 md:hidden z-30">
                                 <i data-lucide="x" class="w-2.5 h-2.5 text-white"></i>
                             </button>
                         </div>
@@ -1840,7 +1850,7 @@
                         <span class="text-xs md:text-sm font-bold mb-1 md:mb-2 w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full ${dayNumClass}">
                             ${day}
                         </span>
-                        <div class="flex-1 overflow-y-auto space-y-1.5 md:space-y-2 custom-scrollbar pr-1">
+                        <div class="flex-1 overflow-y-auto custom-scrollbar pr-1">
                             ${eventsHtml}
                         </div>
                     </div>
@@ -1886,7 +1896,6 @@
             const html = dayDisps.map(d => {
                 const drv = state.drivers.find(x => x.id === d.driverId) || {};
                 const ven = state.vendors.find(x => x.id === d.vendorId) || {};
-                const borderColorClass = d.color.replace('bg-', 'border-'); // 把背景色轉為邊框色
                 
                 return `
                     <div class="flex relative bg-slate-800 shadow-lg rounded-2xl mb-4 overflow-hidden print-card">
