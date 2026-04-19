@@ -106,8 +106,13 @@
             .print-border-black { border-color: #000 !important; }
             .print-divide-black > :not([hidden]) ~ :not([hidden]) { border-color: #000 !important; }
             .print-bg-gray { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            table { border: 1px solid #000 !important; width: 100% !important; margin-top: 15px !important; }
-            th, td { border: 1px solid #000 !important; padding: 10px !important; font-size: 14pt !important; }
+            
+            /* 列印用卡片樣式 */
+            .print-card { border: 1px solid #000 !important; background: white !important; box-shadow: none !important; page-break-inside: avoid; margin-bottom: 15px !important;}
+            .print-card * { color: black !important; }
+            .print-card .bg-slate-900 { background: #f3f4f6 !important; border: 1px solid #ccc !important; }
+            .print-card .shrink-0.w-3 { display: none !important; } /* 隱藏左側顏色條 */
+
             h2 { text-shadow: none !important; color: black !important; font-size: 24pt !important; }
         }
     </style>
@@ -218,7 +223,6 @@
                         <button id="v-btn-save" onclick="vSaveRegistration()" class="hidden flex justify-center items-center px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl transition font-bold shadow-lg shadow-cyan-900/50">
                             <i data-lucide="save" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>儲存
                         </button>
-                        
                         <button onclick="vCancelCreate()" id="v-btn-cancel-create" class="hidden flex justify-center items-center px-4 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-500/30 rounded-xl transition font-medium">
                             <i data-lucide="x" class="w-4 h-4 mr-1.5 md:mr-2 shrink-0"></i>取消新增
                         </button>
@@ -487,10 +491,10 @@
 
         <!-- ==================== 派車排程 View ==================== -->
         <div id="view-dispatch" class="h-full flex flex-col slide-in-right overflow-y-auto pb-24 absolute inset-0 z-20 hidden pt-4 md:pt-6">
-            <div class="max-w-[1400px] mx-auto w-full px-4 md:px-6 flex-1 grid grid-cols-1 gap-6 md:gap-8">
+            <div class="max-w-[1400px] mx-auto w-full px-4 md:px-6 flex-1 flex flex-col gap-6 md:gap-8">
                 
                 <!-- 上方：表單區塊 (改為橫向) -->
-                <div id="disp-form-panel" class="p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-xl transition-all glass-panel border-white/10 mb-2">
+                <div id="disp-form-panel" class="p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-xl transition-all glass-panel border-white/10 shrink-0">
                     <h3 id="disp-form-title" class="font-bold text-lg md:text-xl mb-4 border-b border-slate-700/50 pb-3 flex items-center justify-between text-slate-100">
                         <span class="flex items-center"><i data-lucide="calendar-clock" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-violet-400"></i> 登記派車</span>
                         <span class="text-sm font-medium text-slate-400">排定時長: <span id="disp-hours" class="text-violet-400 font-bold text-xl ml-1">2.0</span> <span class="text-sm text-slate-500">h</span></span>
@@ -506,20 +510,12 @@
                             <input type="date" id="disp-date" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500">
                         </div>
                         <div>
-                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">開始時間</label>
-                            <div class="flex items-center space-x-2">
-                                <select id="disp-start-h" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500 text-center font-medium"></select>
-                                <span class="text-slate-400 font-bold">:</span>
-                                <select id="disp-start-m" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500 text-center font-medium"></select>
-                            </div>
+                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">開始時間 (時)</label>
+                            <select id="disp-start-h" onchange="onStartHourChange()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500 text-center font-bold text-lg cursor-pointer"></select>
                         </div>
                         <div>
-                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">結束時間</label>
-                            <div class="flex items-center space-x-2">
-                                <select id="disp-end-h" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500 text-center font-medium"></select>
-                                <span class="text-slate-400 font-bold">:</span>
-                                <select id="disp-end-m" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500 text-center font-medium"></select>
-                            </div>
+                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">結束時間 (時)</label>
+                            <select id="disp-end-h" onchange="dispCalcTime()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500 text-center font-bold text-lg cursor-pointer"></select>
                         </div>
                         <div>
                             <label class="block text-xs md:text-sm text-slate-400 mb-1.5">3. 目的地 (廠商)</label>
@@ -571,36 +567,28 @@
         <div id="view-daily" class="h-full flex flex-col slide-in-right overflow-y-auto pb-24 absolute inset-0 z-20 hidden pt-4 md:pt-6">
             <div class="max-w-5xl mx-auto w-full px-4 md:px-6 flex-1">
                 <div class="glass-panel p-4 md:p-6 rounded-2xl md:rounded-3xl mb-4 md:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center text-slate-300 gap-3 w-full sm:w-auto">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center text-slate-300 gap-4 w-full sm:w-auto">
                         <label class="font-bold text-xl tracking-wider text-amber-400 shrink-0">單日派車明細</label>
-                        <input type="date" id="daily-date" onchange="renderDailyView()" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-amber-500 min-w-[200px]">
+                        <div class="flex items-center space-x-2">
+                            <button onclick="dailyPrevDay()" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition active:scale-95"><i data-lucide="chevron-left" class="w-5 h-5 text-slate-300"></i></button>
+                            <input type="date" id="daily-date" onchange="renderDailyView()" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-2.5 text-white outline-none focus:border-amber-500 font-bold tracking-wider">
+                            <button onclick="dailyNextDay()" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition active:scale-95"><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i></button>
+                        </div>
                     </div>
                     <button onclick="window.print()" class="w-full sm:w-auto flex justify-center items-center px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-xl transition font-bold shadow-lg shadow-orange-900/50 active:scale-95">
                         <i data-lucide="printer" class="w-5 h-5 mr-2"></i>列印派車單
                     </button>
                 </div>
 
-                <!-- 列印專屬區塊 -->
-                <div id="daily-print-area" class="glass-panel rounded-2xl md:rounded-3xl p-5 md:p-8 border border-white/10 shadow-2xl bg-white text-black print-bg-white relative">
+                <!-- 列印專屬區塊 (改為高對比獨立卡片) -->
+                <div id="daily-print-area" class="glass-panel rounded-2xl md:rounded-3xl p-5 md:p-8 border border-white/10 shadow-2xl relative">
                     <div class="text-center mb-6 border-b border-slate-700/50 pb-4 print-border-black">
                         <h2 class="text-2xl font-bold text-slate-100 print-text-black" id="daily-print-title">YYYY-MM-DD 派車明細表</h2>
                     </div>
-                    <div class="overflow-x-auto rounded-xl border border-slate-700 print-border-black custom-scrollbar">
-                        <table class="w-full text-left border-collapse min-w-[700px]">
-                            <thead>
-                                <tr class="bg-slate-800/80 print-bg-gray text-slate-300 print-text-black text-sm border-b border-slate-700 print-border-black">
-                                    <th class="p-3 font-medium w-32">時間</th>
-                                    <th class="p-3 font-medium w-24">司機</th>
-                                    <th class="p-3 font-medium w-48">廠商 / 目的地</th>
-                                    <th class="p-3 font-medium w-24">聯絡人</th>
-                                    <th class="p-3 font-medium w-32">電話</th>
-                                    <th class="p-3 font-medium">備註 / 時長</th>
-                                </tr>
-                            </thead>
-                            <tbody id="daily-list" class="divide-y divide-slate-800 print-divide-black text-slate-200 print-text-black">
-                                <!-- JS Injected -->
-                            </tbody>
-                        </table>
+                    
+                    <!-- 卡片列表容器 -->
+                    <div id="daily-list" class="space-y-4">
+                        <!-- JS Injected -->
                     </div>
                 </div>
             </div>
@@ -664,7 +652,7 @@
 
         // --- 本地端極速快取機制 ---
         let useLocalMode = false;
-        const CACHE_KEY = 'dispatch_system_cache_v14';
+        const CACHE_KEY = 'dispatch_system_cache_v15';
         
         const loadLocalCache = () => {
             try {
@@ -783,21 +771,17 @@
             }
         };
 
+        // --- 全新：以小時為單位的時間選單 ---
         window.initTimeSelects = () => {
             let hOptions = '';
-            for(let i=0; i<24; i++) hOptions += `<option value="${String(i).padStart(2,'0')}">${String(i).padStart(2,'0')}</option>`;
-            
-            let mOptions = '';
-            const minutes = ['00', '10', '15', '20', '30', '40', '45', '50'];
-            minutes.forEach(m => mOptions += `<option value="${m}">${m}</option>`);
+            for(let i=0; i<24; i++) {
+                const hourStr = String(i).padStart(2,'0');
+                hOptions += `<option value="${hourStr}">${hourStr}:00</option>`;
+            }
             
             ['disp-start-h', 'disp-end-h'].forEach(id => {
                 const el = document.getElementById(id);
                 if(el) el.innerHTML = hOptions;
-            });
-            ['disp-start-m', 'disp-end-m'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.innerHTML = mOptions;
             });
         };
 
@@ -1687,6 +1671,15 @@
         };
 
         // --- Dispatch Logic ---
+        
+        // 當開始小時變更時，自動更新結束小時
+        window.onStartHourChange = () => {
+            const startH = parseInt(document.getElementById('disp-start-h').value, 10);
+            let endH = (startH + 1) % 24; // 自動加 1 小時，跨夜則變 00
+            document.getElementById('disp-end-h').value = String(endH).padStart(2, '0');
+            window.dispCalcTime();
+        };
+
         window.dispRenderSelectors = () => {
             if(document.getElementById('view-dispatch').classList.contains('hidden')) return;
             const dSel = document.getElementById('disp-driver');
@@ -1696,9 +1689,7 @@
                 dSel.innerHTML = state.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
                 if(!document.getElementById('disp-date').value) document.getElementById('disp-date').value = new Date().toISOString().split('T')[0];
                 document.getElementById('disp-start-h').value = '09';
-                document.getElementById('disp-start-m').value = '00';
-                document.getElementById('disp-end-h').value = '11';
-                document.getElementById('disp-end-m').value = '00';
+                document.getElementById('disp-end-h').value = '10';
                 window.dispCalcTime();
             }
             if(!vSel.value) {
@@ -1708,13 +1699,10 @@
 
         window.dispCalcTime = () => {
             const sh = Number(document.getElementById('disp-start-h').value);
-            const sm = Number(document.getElementById('disp-start-m').value);
             const eh = Number(document.getElementById('disp-end-h').value);
-            const em = Number(document.getElementById('disp-end-m').value);
             
-            let diff = (eh + em/60) - (sh + sm/60);
-            if (diff < 0) diff += 24;
-            if (diff === 0 && (sh !== eh || sm !== em)) diff = 24;
+            let diff = eh - sh;
+            if (diff <= 0) diff += 24; // 跨夜處理或相同時間當作 24 小時
             document.getElementById('disp-hours').innerText = diff.toFixed(1);
         };
 
@@ -1724,16 +1712,14 @@
             
             const isNew = !state.editingDispatchId;
             const sh = document.getElementById('disp-start-h').value;
-            const sm = document.getElementById('disp-start-m').value;
             const eh = document.getElementById('disp-end-h').value;
-            const em = document.getElementById('disp-end-m').value;
 
             const data = {
                 id: isNew ? Date.now().toString() : state.editingDispatchId,
                 driverId: document.getElementById('disp-driver').value,
                 date: document.getElementById('disp-date').value,
-                startTime: `${sh}:${sm}`,
-                endTime: `${eh}:${em}`,
+                startTime: `${sh}:00`,
+                endTime: `${eh}:00`,
                 hours: hours.toFixed(1),
                 vendorId: document.getElementById('disp-vendor').value,
                 color: isNew ? eventColors[state.dispatches.length % eventColors.length] : (state.dispatches.find(d=>d.id===state.editingDispatchId)?.color || eventColors[0])
@@ -1752,11 +1738,9 @@
             document.getElementById('disp-date').value = d.date;
             
             const st = d.startTime || '09:00';
-            const et = d.endTime || '11:00';
+            const et = d.endTime || '10:00';
             document.getElementById('disp-start-h').value = st.split(':')[0];
-            document.getElementById('disp-start-m').value = st.split(':')[1];
             document.getElementById('disp-end-h').value = et.split(':')[0];
-            document.getElementById('disp-end-m').value = et.split(':')[1];
             
             document.getElementById('disp-vendor').value = d.vendorId;
             window.dispCalcTime();
@@ -1775,13 +1759,11 @@
         window.dispCancelEdit = () => {
             state.editingDispatchId = null;
             document.getElementById('disp-start-h').value = '09';
-            document.getElementById('disp-start-m').value = '00';
-            document.getElementById('disp-end-h').value = '11';
-            document.getElementById('disp-end-m').value = '00';
+            document.getElementById('disp-end-h').value = '10';
             window.dispCalcTime();
             
             document.getElementById('disp-form-panel').className = "p-5 md:p-6 rounded-2xl md:rounded-3xl border shadow-xl transition-all glass-panel border-white/10 mb-2 shrink-0";
-            document.getElementById('disp-form-title').innerHTML = `<span class="flex items-center"><i data-lucide="calendar-clock" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-violet-400"></i> 登記派車</span><span class="text-sm font-medium text-slate-400">排定時長: <span id="disp-hours" class="text-violet-400 font-bold text-xl ml-1">2.0</span> <span class="text-sm text-slate-500">h</span></span>`;
+            document.getElementById('disp-form-title').innerHTML = `<span class="flex items-center"><i data-lucide="calendar-clock" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-violet-400"></i> 登記派車</span><span class="text-sm font-medium text-slate-400">排定時長: <span id="disp-hours" class="text-violet-400 font-bold text-xl ml-1">1.0</span> <span class="text-sm text-slate-500">h</span></span>`;
             document.getElementById('disp-save-btn').innerText = "送出排程";
             document.getElementById('disp-save-btn').className = "w-full font-bold text-sm md:text-base py-2.5 md:py-3 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-purple-900/50";
             document.getElementById('disp-cancel-btn').classList.add('hidden');
@@ -1812,7 +1794,7 @@
             
             let html = '';
             for (let i = 0; i < firstDay; i++) {
-                html += `<div class="bg-slate-800/20 rounded-2xl border border-transparent"></div>`;
+                html += `<div class="bg-slate-800/20 rounded-xl md:rounded-2xl border border-transparent"></div>`;
             }
             
             for (let day = 1; day <= daysInMonth; day++) {
@@ -1830,10 +1812,12 @@
                     const ven = state.vendors.find(x => x.id === d.vendorId)?.name || '未知';
                     const isEdit = state.editingDispatchId === d.id;
                     const eventClass = `${d.color} ${isEdit ? 'ring-2 ring-white scale-[1.02] shadow-xl' : 'opacity-90 hover:opacity-100'}`;
+                    
+                    // 月曆卡片：標明時間與總時長
                     const st = d.startTime || '';
                     
                     return `
-                        <div onclick="dispEdit('${d.id}')" class="${eventClass} text-white rounded-xl p-2 cursor-pointer transition-all group flex flex-col relative no-select">
+                        <div onclick="dispEdit('${d.id}')" class="${eventClass} text-white rounded-lg md:rounded-xl p-1.5 md:p-2 cursor-pointer transition-all group flex flex-col relative no-select">
                             <div class="font-bold truncate text-[11px] md:text-[13px] leading-tight mb-0.5">${st} - ${d.endTime}</div>
                             <div class="truncate text-[11px] md:text-[12px] opacity-90 leading-tight mb-0.5">${drv} <span class="text-amber-300 font-medium">(${d.hours}h)</span></div>
                             <div class="text-[10px] md:text-[11px] truncate opacity-70 leading-tight">${ven}</div>
@@ -1848,11 +1832,11 @@
                 }).join('');
 
                 html += `
-                    <div class="border rounded-2xl p-2.5 flex flex-col overflow-hidden transition-colors ${cellClass}">
-                        <span class="text-sm font-bold mb-2 w-8 h-8 flex items-center justify-center rounded-full ${dayNumClass}">
+                    <div class="border rounded-xl md:rounded-2xl p-1.5 md:p-2.5 flex flex-col overflow-hidden transition-colors ${cellClass}">
+                        <span class="text-xs md:text-sm font-bold mb-1 md:mb-2 w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full ${dayNumClass}">
                             ${day}
                         </span>
-                        <div class="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-1">
+                        <div class="flex-1 overflow-y-auto space-y-1.5 md:space-y-2 custom-scrollbar pr-1">
                             ${eventsHtml}
                         </div>
                     </div>
@@ -1862,7 +1846,24 @@
             lucide.createIcons();
         };
 
-        // --- Daily Print View Logic ---
+        // --- 單日派車單 (日曆模式與卡片顯示) Logic ---
+        
+        window.dailyPrevDay = () => {
+            const dateInput = document.getElementById('daily-date');
+            const d = new Date(dateInput.value);
+            d.setDate(d.getDate() - 1);
+            dateInput.value = d.toISOString().split('T')[0];
+            window.renderDailyView();
+        };
+
+        window.dailyNextDay = () => {
+            const dateInput = document.getElementById('daily-date');
+            const d = new Date(dateInput.value);
+            d.setDate(d.getDate() + 1);
+            dateInput.value = d.toISOString().split('T')[0];
+            window.renderDailyView();
+        };
+
         window.renderDailyView = () => {
             if(document.getElementById('view-daily').classList.contains('hidden')) return;
             
@@ -1881,19 +1882,35 @@
             const html = dayDisps.map(d => {
                 const drv = state.drivers.find(x => x.id === d.driverId) || {};
                 const ven = state.vendors.find(x => x.id === d.vendorId) || {};
+                const borderColorClass = d.color.replace('bg-', 'border-'); // 把背景色轉為邊框色
+                
                 return `
-                    <tr class="hover:bg-slate-800/50 transition-colors text-sm md:text-base print-text-black">
-                        <td class="p-3 md:p-4 whitespace-nowrap border-b border-slate-800 print-border-black">${d.startTime} - ${d.endTime}</td>
-                        <td class="p-3 md:p-4 font-bold text-cyan-400 print-text-black border-b border-slate-800 print-border-black">${drv.name || '未知'}</td>
-                        <td class="p-3 md:p-4 whitespace-nowrap border-b border-slate-800 print-border-black">${ven.name || '未知'}</td>
-                        <td class="p-3 md:p-4 whitespace-nowrap border-b border-slate-800 print-border-black">${ven.contact || '-'}</td>
-                        <td class="p-3 md:p-4 whitespace-nowrap border-b border-slate-800 print-border-black">${ven.phone1 || '-'}</td>
-                        <td class="p-3 md:p-4 text-slate-400 print-text-black border-b border-slate-800 print-border-black">共 ${d.hours}h</td>
-                    </tr>
+                    <div class="flex relative bg-slate-800 shadow-lg rounded-2xl mb-4 overflow-hidden print-card">
+                        <div class="w-3 ${d.color} shrink-0 print-bg-gray"></div>
+                        <div class="p-5 flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div class="flex items-center md:w-1/4">
+                                <span class="bg-slate-900 px-4 py-2 rounded-xl text-cyan-400 font-bold text-lg tracking-wider print-text-black print-border-black print:border print:bg-white">${d.startTime} - ${d.endTime}</span>
+                            </div>
+                            <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="flex flex-col">
+                                    <span class="text-slate-400 text-xs mb-1 print-text-black">司機姓名</span>
+                                    <span class="text-slate-100 font-bold text-lg flex items-center print-text-black"><i data-lucide="user" class="w-4 h-4 mr-2 text-emerald-400"></i>${drv.name || '未知'}</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-slate-400 text-xs mb-1 print-text-black">目的地</span>
+                                    <span class="text-slate-100 font-bold text-lg flex items-center print-text-black"><i data-lucide="map-pin" class="w-4 h-4 mr-2 text-rose-400"></i>${ven.name || '未知'}</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col text-right md:w-24 shrink-0">
+                                <span class="text-slate-400 text-xs mb-1 print-text-black">預計總時長</span>
+                                <span class="text-amber-400 font-bold text-2xl print-text-black">${d.hours}<span class="text-sm ml-1 text-amber-500/70 print-text-black">h</span></span>
+                            </div>
+                        </div>
+                    </div>
                 `;
             }).join('');
 
-            document.getElementById('daily-list').innerHTML = html || `<tr><td colspan="6" class="p-8 text-center text-slate-500 print-text-black">當日無派車排程</td></tr>`;
+            document.getElementById('daily-list').innerHTML = html || `<div class="p-12 text-center text-slate-500 font-medium text-lg print-text-black print:border print:border-slate-300 rounded-2xl">當日無派車排程</div>`;
             lucide.createIcons();
         };
 
