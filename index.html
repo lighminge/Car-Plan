@@ -171,18 +171,18 @@
             </div>
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-12 max-w-7xl w-full pb-10">
-                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('dispatch')">
-                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center shadow-xl shadow-violet-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
-                        <i data-lucide="calendar-clock" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
-                    </div>
-                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">派車排程</span>
-                </div>
-
                 <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('daily')">
                     <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-pink-500 to-rose-400 flex items-center justify-center shadow-xl shadow-rose-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
                         <i data-lucide="printer" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
                     </div>
                     <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors text-amber-400">單日派車單</span>
+                </div>
+
+                <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('dispatch')">
+                    <div class="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-400 flex items-center justify-center shadow-xl shadow-violet-500/30 group-hover:scale-105 active:scale-95 transition-all duration-300 border border-white/20 mb-4 md:mb-6">
+                        <i data-lucide="calendar-clock" class="w-12 h-12 md:w-16 md:h-16 text-white"></i>
+                    </div>
+                    <span class="text-slate-200 font-bold text-xl md:text-2xl tracking-wide group-hover:text-white transition-colors">派車排程</span>
                 </div>
 
                 <div class="flex flex-col items-center group cursor-pointer" onclick="switchView('vehicle')">
@@ -289,27 +289,34 @@
                             </div>
                         </div>
                         
-                        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-3 space-y-3 xl:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
-                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                        <!-- 獨立的 Excel 匯出區塊 -->
+                        <div class="flex flex-col sm:flex-row items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-700/50 mb-3 shadow-inner">
+                            <div class="text-sm text-emerald-400 font-bold mb-3 sm:mb-0 flex items-center">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4 mr-2"></i>匯出加油紀錄
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 justify-center w-full sm:w-auto">
+                                <span class="text-sm text-slate-400">區間：</span>
+                                <input type="month" id="v-f-export-start" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
+                                <span class="text-slate-500">-</span>
+                                <input type="month" id="v-f-export-end" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
+                                <button onclick="exportExcel('fuel')" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-md text-white transition flex items-center text-sm font-bold shadow-lg shadow-emerald-900/20"><i data-lucide="download" class="w-4 h-4 mr-1.5"></i>匯出 Excel</button>
+                            </div>
+                        </div>
+
+                        <!-- 篩選與分頁工具列 -->
+                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 space-y-3 lg:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
+                            <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                                 <label class="text-sm text-slate-400 font-medium shrink-0"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>年月篩選：</label>
                                 <input type="month" id="v-f-filter-month" onchange="vFilterChange('fuel')" class="bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
                                 <button onclick="vClearFilter('fuel')" class="p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white shrink-0 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
                             </div>
                             
-                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto bg-slate-900/50 p-1.5 rounded-lg border border-slate-600 shadow-inner">
-                                <label class="text-sm text-emerald-400 font-medium shrink-0 pl-1"><i data-lucide="file-spreadsheet" class="w-4 h-4 inline mr-1"></i>Excel 匯出：</label>
-                                <input type="month" id="v-f-export-start" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
-                                <span class="text-slate-500">-</span>
-                                <input type="month" id="v-f-export-end" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
-                                <button onclick="exportExcel('fuel')" class="p-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 rounded-md text-white transition flex items-center text-sm font-bold shadow-lg"><i data-lucide="download" class="w-4 h-4 mr-1"></i>匯出</button>
-                            </div>
-
-                            <div class="flex items-center justify-between sm:justify-center w-full xl:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 xl:mx-4 shadow-inner">
+                            <div class="flex items-center justify-between sm:justify-center w-full lg:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 lg:mx-4 shadow-inner">
                                 <span class="text-slate-400">當前篩選共 <span id="v-f-summary-count" class="text-cyan-400 font-bold text-base px-1">0</span> 筆</span>
                                 <span class="text-slate-600 hidden sm:inline mx-3">|</span>
                                 <span class="text-slate-400">總花費 <span id="v-f-summary-cost" class="text-amber-400 font-bold text-base px-1">$0</span></span>
                             </div>
-                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full xl:w-auto justify-end">
+                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full lg:w-auto justify-end">
                                 <button onclick="vChangePage('fuel', -1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
                                 <span id="v-f-page-info" class="font-bold tracking-wider w-12 text-center text-cyan-400">1 / 1</span>
                                 <button onclick="vChangePage('fuel', 1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
@@ -373,27 +380,34 @@
                             </div>
                         </div>
                         
-                        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-3 space-y-3 xl:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
-                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                        <!-- 獨立的 Excel 匯出區塊 -->
+                        <div class="flex flex-col sm:flex-row items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-700/50 mb-3 shadow-inner">
+                            <div class="text-sm text-emerald-400 font-bold mb-3 sm:mb-0 flex items-center">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4 mr-2"></i>匯出保養紀錄
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 justify-center w-full sm:w-auto">
+                                <span class="text-sm text-slate-400">區間：</span>
+                                <input type="month" id="v-m-export-start" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
+                                <span class="text-slate-500">-</span>
+                                <input type="month" id="v-m-export-end" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
+                                <button onclick="exportExcel('main')" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-md text-white transition flex items-center text-sm font-bold shadow-lg shadow-emerald-900/20"><i data-lucide="download" class="w-4 h-4 mr-1.5"></i>匯出 Excel</button>
+                            </div>
+                        </div>
+
+                        <!-- 篩選與分頁工具列 -->
+                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 space-y-3 lg:space-y-0 bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
+                            <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                                 <label class="text-sm text-slate-400 font-medium shrink-0"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>年月篩選：</label>
                                 <input type="month" id="v-m-filter-month" onchange="vFilterChange('main')" class="bg-slate-900/80 border border-slate-600 rounded-lg p-2 text-white outline-none focus:border-cyan-500 text-sm">
                                 <button onclick="vClearFilter('main')" class="p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white shrink-0 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
                             </div>
 
-                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto bg-slate-900/50 p-1.5 rounded-lg border border-slate-600 shadow-inner">
-                                <label class="text-sm text-emerald-400 font-medium shrink-0 pl-1"><i data-lucide="file-spreadsheet" class="w-4 h-4 inline mr-1"></i>Excel 匯出：</label>
-                                <input type="month" id="v-m-export-start" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
-                                <span class="text-slate-500">-</span>
-                                <input type="month" id="v-m-export-end" class="bg-slate-800 border border-slate-600 rounded-md p-1.5 text-white outline-none focus:border-emerald-500 text-sm">
-                                <button onclick="exportExcel('main')" class="p-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 rounded-md text-white transition flex items-center text-sm font-bold shadow-lg"><i data-lucide="download" class="w-4 h-4 mr-1"></i>匯出</button>
-                            </div>
-
-                            <div class="flex items-center justify-between sm:justify-center w-full xl:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 xl:mx-4 shadow-inner">
+                            <div class="flex items-center justify-between sm:justify-center w-full lg:w-auto bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-600 text-sm flex-1 lg:mx-4 shadow-inner">
                                 <span class="text-slate-400">當前篩選共 <span id="v-m-summary-count" class="text-cyan-400 font-bold text-base px-1">0</span> 筆</span>
                                 <span class="text-slate-600 hidden sm:inline mx-3">|</span>
                                 <span class="text-slate-400">總花費 <span id="v-m-summary-cost" class="text-amber-400 font-bold text-base px-1">$0</span></span>
                             </div>
-                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full xl:w-auto justify-end">
+                            <div class="flex items-center space-x-3 text-slate-300 text-sm w-full lg:w-auto justify-end">
                                 <button onclick="vChangePage('main', -1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
                                 <span id="v-m-page-info" class="font-bold tracking-wider w-12 text-center text-cyan-400">1 / 1</span>
                                 <button onclick="vChangePage('main', 1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg active:scale-95 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
