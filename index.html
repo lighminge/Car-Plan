@@ -444,8 +444,8 @@
                     <div class="flex flex-col sm:flex-row items-start sm:items-center text-slate-300 w-full lg:w-auto gap-3">
                         <label class="mr-2 font-bold text-xl tracking-wider text-emerald-400 shrink-0">人事資料</label>
                         <div class="grid grid-cols-2 gap-2 w-full sm:w-auto sm:ml-2">
-                            <select id="d-dept-select" onchange="dRenderSelect()" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-2.5 md:p-3 text-white outline-none focus:border-emerald-500 min-w-[120px]"></select>
-                            <select id="d-select" onchange="dLoadData(true)" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-2.5 md:p-3 text-white outline-none focus:border-emerald-500 min-w-[120px]"></select>
+                            <select id="d-dept-select" onchange="dRenderSelect()" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-2.5 md:p-3 text-white outline-none focus:border-emerald-500 min-w-[120px] transition-all"></select>
+                            <select id="d-select" onchange="dLoadData(true)" class="w-full sm:w-auto bg-slate-800 border border-slate-600 rounded-xl p-2.5 md:p-3 text-white outline-none focus:border-emerald-500 min-w-[120px] transition-all"></select>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 lg:flex lg:flex-wrap w-full lg:w-auto gap-2 md:gap-3 shrink-0">
@@ -473,9 +473,9 @@
                     <div id="d-form" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 md:gap-y-6 readonly-form pb-4">
                         <div><label class="block text-sm text-slate-400 mb-1.5">姓名</label><input type="text" id="d-name" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-emerald-400 font-bold text-lg md:text-xl outline-none focus:border-emerald-500 transition-all"></div>
                         <div><label class="block text-sm text-slate-400 mb-1.5">性別</label><select id="d-gender" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"><option>男</option><option>女</option></select></div>
-                        <div><label class="block text-sm text-slate-400 mb-1.5">所屬單位</label><input type="text" id="d-dept" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">所屬單位</label><input type="text" id="d-dept" oninput="dRenderDeputySelect()" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
                         <div><label class="block text-sm text-slate-400 mb-1.5">手機號碼</label><input type="text" id="d-phone" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
-                        <div><label class="block text-sm text-slate-400 mb-1.5">代理人</label><input type="text" id="d-deputy" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
+                        <div><label class="block text-sm text-slate-400 mb-1.5">代理人</label><select id="d-deputy" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"><option value="">無</option></select></div>
                         <div><label class="block text-sm text-slate-400 mb-1.5">其他備註</label><input type="text" id="d-other" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-3.5 text-slate-100 outline-none focus:border-emerald-500 transition-all"></div>
                         <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">相關持有執照</label><textarea id="d-lic" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-slate-100 outline-none focus:border-emerald-500 transition-all" rows="2"></textarea></div>
                         <div class="col-span-1 md:col-span-2"><label class="block text-sm text-slate-400 mb-1.5">疾病史記錄</label><textarea id="d-med" disabled class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 md:p-4 text-slate-100 outline-none focus:border-emerald-500 transition-all" rows="2"></textarea></div>
@@ -1488,11 +1488,27 @@
         // --- Driver Logic ---
         window.dToggleEdit = (isEdit) => {
             toggleFormInputs('d-form', isEdit);
+            
+            const deptSelect = document.getElementById('d-dept-select');
+            const dSelect = document.getElementById('d-select');
+            
             if (isEdit) {
+                // 編輯或新增時，鎖定上方選單避免誤觸
+                deptSelect.disabled = true;
+                dSelect.disabled = true;
+                deptSelect.classList.add('opacity-50', 'cursor-not-allowed');
+                dSelect.classList.add('opacity-50', 'cursor-not-allowed');
+                
                 document.getElementById('d-btn-edit').classList.add('hidden');
                 document.getElementById('d-btn-save').classList.remove('hidden');
                 if(!state.isCreatingDriver) document.getElementById('d-btn-cancel-edit').classList.remove('hidden');
             } else {
+                // 解除鎖定
+                deptSelect.disabled = false;
+                dSelect.disabled = false;
+                deptSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+                dSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+                
                 document.getElementById('d-btn-edit').classList.remove('hidden');
                 document.getElementById('d-btn-save').classList.add('hidden');
                 document.getElementById('d-btn-cancel-edit').classList.add('hidden');
@@ -1539,6 +1555,30 @@
             window.dLoadData();
         };
 
+        window.dRenderDeputySelect = () => {
+            const dept = document.getElementById('d-dept').value;
+            const currentId = document.getElementById('d-id').value;
+            const sel = document.getElementById('d-deputy');
+            const currVal = sel.value; 
+
+            // 只挑選同部門、且不是自己的司機
+            const candidates = state.drivers.filter(d => d.department === dept && d.id !== currentId);
+            
+            let optionsHtml = '<option value="">無</option>';
+            candidates.forEach(c => {
+                optionsHtml += `<option value="${c.name}">${c.name}</option>`;
+            });
+            
+            sel.innerHTML = optionsHtml;
+            
+            // 若原本選擇的人還在名單中，則保留選取狀態
+            if (candidates.some(c => c.name === currVal) || currVal === "") {
+                sel.value = currVal;
+            } else {
+                sel.value = "";
+            }
+        };
+
         window.dLoadData = () => {
             const id = document.getElementById('d-select').value;
             const d = state.drivers.find(x => x.id === id) || {};
@@ -1547,7 +1587,10 @@
             document.getElementById('d-gender').value = d.gender || '男';
             document.getElementById('d-dept').value = d.department || '';
             document.getElementById('d-phone').value = d.phone || '';
+            
+            window.dRenderDeputySelect();
             document.getElementById('d-deputy').value = d.deputy || '';
+            
             document.getElementById('d-other').value = d.other || '';
             document.getElementById('d-lic').value = d.licenses || '';
             document.getElementById('d-med').value = d.medical || '';
@@ -1563,7 +1606,10 @@
             document.getElementById('d-gender').value = '男';
             document.getElementById('d-dept').value = '';
             document.getElementById('d-phone').value = '';
+            
+            window.dRenderDeputySelect();
             document.getElementById('d-deputy').value = '';
+            
             document.getElementById('d-other').value = '';
             document.getElementById('d-lic').value = '';
             document.getElementById('d-med').value = '';
