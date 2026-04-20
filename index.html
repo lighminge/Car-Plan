@@ -66,14 +66,14 @@
         .readonly-form input:disabled, 
         .readonly-form select:disabled, 
         .readonly-form textarea:disabled {
-            background-color: rgba(30, 41, 59, 0.6) !important; /* bg-slate-800/60 */
-            border: 1px solid rgba(71, 85, 105, 0.5) !important; /* border-slate-600/50 */
-            border-radius: 0.75rem !important; /* rounded-xl */
+            background-color: rgba(30, 41, 59, 0.6) !important;
+            border: 1px solid rgba(71, 85, 105, 0.5) !important; 
+            border-radius: 0.75rem !important; 
             color: #f1f5f9 !important;
             box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05) !important;
             -webkit-appearance: none !important;
             appearance: none !important;
-            padding-left: 0.875rem !important; /* 恢復內距，看起來像實體欄位 */
+            padding-left: 0.875rem !important; 
             opacity: 1 !important; 
             cursor: default !important;
         }
@@ -110,11 +110,10 @@
             .print-divide-black > :not([hidden]) ~ :not([hidden]) { border-color: #000 !important; }
             .print-bg-gray { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             
-            /* 列印用卡片樣式 */
             .print-card { border: 1px solid #000 !important; background: white !important; box-shadow: none !important; page-break-inside: avoid; margin-bottom: 15px !important;}
             .print-card * { color: black !important; }
             .print-card .bg-slate-900 { background: #f3f4f6 !important; border: 1px solid #ccc !important; }
-            .print-card .shrink-0.w-3 { display: none !important; } /* 隱藏左側顏色條 */
+            .print-card .shrink-0.w-3 { display: none !important; } 
 
             h2 { text-shadow: none !important; color: black !important; font-size: 24pt !important; }
         }
@@ -541,11 +540,15 @@
                         <span class="flex items-center"><i data-lucide="calendar-clock" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 text-violet-400"></i> 登記派車</span>
                         <span class="text-sm font-medium text-slate-400">排定時長: <span id="disp-hours" class="text-violet-400 font-bold text-xl ml-1">2.0</span> <span class="text-sm text-slate-500">h</span></span>
                     </h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4 items-end">
                         <input type="hidden" id="disp-id">
                         <div>
                             <label class="block text-xs md:text-sm text-slate-400 mb-1.5">1. 選擇司機</label>
                             <select id="disp-driver" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">派車車輛</label>
+                            <select id="disp-vehicle" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-violet-500"></select>
                         </div>
                         <div>
                             <label class="block text-xs md:text-sm text-slate-400 mb-1.5">2. 派車日期</label>
@@ -608,6 +611,46 @@
         <!-- ==================== 單日派車單 (列印) View ==================== -->
         <div id="view-daily" class="h-full flex flex-col slide-in-right overflow-y-auto pb-24 absolute inset-0 z-20 hidden pt-4 md:pt-6">
             <div class="max-w-5xl mx-auto w-full px-4 md:px-6 flex-1">
+                
+                <!-- 快速加油登記區塊 (不列印) -->
+                <div class="glass-panel p-4 md:p-6 rounded-2xl md:rounded-3xl mb-4 md:mb-6 border border-white/10 shadow-2xl no-print">
+                    <h3 class="font-bold text-lg md:text-xl mb-4 border-b border-slate-700/50 pb-3 flex items-center text-cyan-400">
+                        <i data-lucide="fuel" class="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3"></i> 司機快速登記加油 (同步至車輛資料)
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                        <div>
+                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">選擇車輛</label>
+                            <select id="daily-fuel-vehicle" onchange="dailyFuelVehicleChange()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-cyan-500"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">加油日期</label>
+                            <input type="date" id="daily-fuel-date" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-white outline-none focus:ring-1 focus:ring-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">目前里程數</label>
+                            <input type="number" id="daily-fuel-mil" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-cyan-200 font-bold outline-none focus:ring-1 focus:ring-cyan-500" placeholder="輸入數字">
+                        </div>
+                        <div>
+                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">油料種類</label>
+                            <select id="daily-fuel-type" disabled class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-400 outline-none opacity-80 cursor-not-allowed">
+                                <option>柴油</option><option>92無鉛</option><option>95無鉛</option><option>98無鉛</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs md:text-sm text-slate-400 mb-1.5">公升數 / 費用(元)</label>
+                            <div class="flex space-x-2">
+                                <input type="number" id="daily-fuel-lit" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-cyan-500" placeholder="公升">
+                                <input type="number" id="daily-fuel-cost" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-slate-100 outline-none focus:ring-1 focus:ring-cyan-500" placeholder="金額">
+                            </div>
+                        </div>
+                        <div>
+                            <button onclick="dailySaveFuel()" class="w-full font-bold text-sm md:text-base py-2.5 md:py-3 rounded-xl border border-transparent transition shadow-lg active:scale-95 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-cyan-900/50">
+                                送出加油紀錄
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="glass-panel p-4 md:p-6 rounded-2xl md:rounded-3xl mb-4 md:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
                     <div class="flex flex-col sm:flex-row items-start sm:items-center text-slate-300 gap-4 w-full sm:w-auto">
                         <label class="font-bold text-xl tracking-wider text-amber-400 shrink-0">單日派車明細</label>
@@ -694,7 +737,7 @@
 
         // --- 本地端極速快取機制 ---
         let useLocalMode = false;
-        const CACHE_KEY = 'dispatch_system_cache_v16'; // 更新版號
+        const CACHE_KEY = 'dispatch_system_cache_v17'; 
         
         const loadLocalCache = () => {
             try {
@@ -1493,7 +1536,6 @@
             const dSelect = document.getElementById('d-select');
             
             if (isEdit) {
-                // 編輯或新增時，鎖定上方選單避免誤觸
                 deptSelect.disabled = true;
                 dSelect.disabled = true;
                 deptSelect.classList.add('opacity-50', 'cursor-not-allowed');
@@ -1503,7 +1545,6 @@
                 document.getElementById('d-btn-save').classList.remove('hidden');
                 if(!state.isCreatingDriver) document.getElementById('d-btn-cancel-edit').classList.remove('hidden');
             } else {
-                // 解除鎖定
                 deptSelect.disabled = false;
                 dSelect.disabled = false;
                 deptSelect.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -1561,7 +1602,6 @@
             const sel = document.getElementById('d-deputy');
             const currVal = sel.value; 
 
-            // 只挑選同部門、且不是自己的司機
             const candidates = state.drivers.filter(d => d.department === dept && d.id !== currentId);
             
             let optionsHtml = '<option value="">無</option>';
@@ -1571,7 +1611,6 @@
             
             sel.innerHTML = optionsHtml;
             
-            // 若原本選擇的人還在名單中，則保留選取狀態
             if (candidates.some(c => c.name === currVal) || currVal === "") {
                 sel.value = currVal;
             } else {
@@ -1772,7 +1811,6 @@
 
         // --- Dispatch Logic ---
         
-        // 當開始小時變更時，自動更新結束小時
         window.onStartHourChange = () => {
             const startH = parseInt(document.getElementById('disp-start-h').value, 10);
             let endH = (startH + 1) % 24; 
@@ -1784,6 +1822,7 @@
             if(document.getElementById('view-dispatch').classList.contains('hidden')) return;
             const dSel = document.getElementById('disp-driver');
             const vSel = document.getElementById('disp-vendor');
+            const vehSel = document.getElementById('disp-vehicle');
             
             if(!dSel.value) {
                 dSel.innerHTML = state.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
@@ -1794,6 +1833,9 @@
             }
             if(!vSel.value) {
                 vSel.innerHTML = state.vendors.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+            }
+            if(!vehSel.value) {
+                vehSel.innerHTML = state.vehicles.map(v => `<option value="${v.id}">${v.plate} (${v.brand})</option>`).join('');
             }
         };
 
@@ -1813,11 +1855,35 @@
             const isNew = !state.editingDispatchId;
             const sh = document.getElementById('disp-start-h').value;
             const eh = document.getElementById('disp-end-h').value;
+            const dispDate = document.getElementById('disp-date').value;
+            const selectedVehicleId = document.getElementById('disp-vehicle').value;
+
+            // --- 防呆：檢查同一台車同時段是否衝突 ---
+            const numSh = parseInt(sh, 10);
+            let numEh = parseInt(eh, 10);
+            if (numEh <= numSh) numEh += 24;
+
+            const isConflict = state.dispatches.some(d => {
+                if (d.id === state.editingDispatchId) return false;
+                if (d.date !== dispDate || d.vehicleId !== selectedVehicleId) return false;
+                
+                const existingSh = parseInt(d.startTime.split(':')[0], 10);
+                let existingEh = parseInt(d.endTime.split(':')[0], 10);
+                if (existingEh <= existingSh) existingEh += 24;
+
+                // 判斷重疊：Max(StartA, StartB) < Min(EndA, EndB)
+                return Math.max(numSh, existingSh) < Math.min(numEh, existingEh);
+            });
+
+            if (isConflict) {
+                return showToast('警告：該車輛在此時段已被預訂！請調整時間或更換車輛。', 'error');
+            }
 
             const data = {
                 id: isNew ? Date.now().toString() : state.editingDispatchId,
                 driverId: document.getElementById('disp-driver').value,
-                date: document.getElementById('disp-date').value,
+                vehicleId: selectedVehicleId,
+                date: dispDate,
                 startTime: `${sh}:00`,
                 endTime: `${eh}:00`,
                 hours: hours.toFixed(1),
@@ -1835,6 +1901,7 @@
             if(!d) return;
             state.editingDispatchId = id;
             document.getElementById('disp-driver').value = d.driverId;
+            document.getElementById('disp-vehicle').value = d.vehicleId || '';
             document.getElementById('disp-date').value = d.date;
             
             const st = d.startTime || '09:00';
@@ -1916,7 +1983,6 @@
                     const ven = state.vendors.find(x => x.id === d.vendorId)?.name || '未知';
                     const isEdit = state.editingDispatchId === d.id;
                     
-                    // 修正：改用 border 搭配內部陰影 (inset)，避免被 overflow-hidden 裁切掉發光效果
                     const eventClass = `${d.color} ${isEdit ? 'border-2 border-amber-400 shadow-[inset_0_0_8px_rgba(251,191,36,0.6)] z-20 brightness-110' : 'border-2 border-transparent opacity-90 hover:opacity-100'}`;
                     const st = d.startTime || '';
                     
@@ -1952,6 +2018,49 @@
 
         // --- 單日派車單 (日曆模式與卡片顯示) Logic ---
         
+        window.dailyFuelVehicleChange = () => {
+            const vid = document.getElementById('daily-fuel-vehicle').value;
+            const v = state.vehicles.find(x => x.id === vid);
+            if (v) {
+                document.getElementById('daily-fuel-mil').value = v.totalMileage || '';
+                document.getElementById('daily-fuel-type').value = v.fuelType || '柴油';
+            }
+        };
+
+        window.dailySaveFuel = () => {
+            const vid = document.getElementById('daily-fuel-vehicle').value;
+            const v = state.vehicles.find(x => x.id === vid);
+            if(!v) return showToast('請選擇車輛', 'error');
+
+            const date = document.getElementById('daily-fuel-date').value || document.getElementById('daily-date').value;
+            const cost = Number(document.getElementById('daily-fuel-cost').value);
+            const inputMil = Number(document.getElementById('daily-fuel-mil').value);
+            const liters = document.getElementById('daily-fuel-lit').value;
+
+            if(!date) return showToast('請填寫日期', 'error');
+            if(!cost || cost <= 0) return showToast('請填寫正確的費用！', 'error');
+            if(!liters) return showToast('請填寫公升數！', 'error');
+
+            const logData = {
+                id: Date.now().toString(),
+                date, cost, preMileage: inputMil, type: v.fuelType || '柴油', liters
+            };
+
+            if (inputMil > Number(v.totalMileage || 0)) {
+                v.totalMileage = inputMil;
+            }
+
+            if(!v.fuelLogs) v.fuelLogs = [];
+            v.fuelLogs.push(logData);
+
+            window.saveToDb('vehicles', v);
+            showToast('加油紀錄已同步至車輛資料！');
+            
+            document.getElementById('daily-fuel-cost').value = '';
+            document.getElementById('daily-fuel-lit').value = '';
+            window.dailyFuelVehicleChange();
+        };
+
         window.dailyPrevDay = () => {
             const dateInput = document.getElementById('daily-date');
             const d = new Date(dateInput.value);
@@ -1978,6 +2087,16 @@
                 document.getElementById('daily-date').value = targetDate;
             }
 
+            // 更新加油表單的預設日期與車輛選單
+            const fuelDateInput = document.getElementById('daily-fuel-date');
+            if (fuelDateInput) fuelDateInput.value = targetDate;
+            
+            const fuelVehSel = document.getElementById('daily-fuel-vehicle');
+            if (fuelVehSel && fuelVehSel.options.length !== state.vehicles.length) {
+                fuelVehSel.innerHTML = state.vehicles.map(v => `<option value="${v.id}">${v.plate} (${v.brand})</option>`).join('');
+                window.dailyFuelVehicleChange();
+            }
+
             document.getElementById('daily-print-title').innerText = `${targetDate} 派車明細表`;
 
             const dayDisps = state.dispatches.filter(d => d.date === targetDate);
@@ -1985,19 +2104,24 @@
 
             const html = dayDisps.map(d => {
                 const drv = state.drivers.find(x => x.id === d.driverId) || {};
+                const veh = state.vehicles.find(x => x.id === d.vehicleId) || {};
                 const ven = state.vendors.find(x => x.id === d.vendorId) || {};
                 
                 return `
                     <div class="flex relative bg-slate-800 shadow-lg rounded-2xl mb-4 overflow-hidden print-card">
                         <div class="w-3 ${d.color} shrink-0 print-bg-gray"></div>
                         <div class="p-5 flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div class="flex items-center md:w-1/4">
+                            <div class="flex items-center md:w-1/5">
                                 <span class="bg-slate-900 px-4 py-2 rounded-xl text-cyan-400 font-bold text-lg tracking-wider print-text-black print-border-black print:border print:bg-white">${d.startTime} - ${d.endTime}</span>
                             </div>
-                            <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div class="flex flex-col">
                                     <span class="text-slate-400 text-xs mb-1 print-text-black">司機姓名</span>
                                     <span class="text-slate-100 font-bold text-lg flex items-center print-text-black"><i data-lucide="user" class="w-4 h-4 mr-2 text-emerald-400"></i>${drv.name || '未知'}</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-slate-400 text-xs mb-1 print-text-black">使用車輛</span>
+                                    <span class="text-slate-100 font-bold text-lg flex items-center print-text-black"><i data-lucide="car" class="w-4 h-4 mr-2 text-blue-400"></i>${veh.plate || '未知'}</span>
                                 </div>
                                 <div class="flex flex-col">
                                     <span class="text-slate-400 text-xs mb-1 print-text-black">目的地</span>
@@ -2092,7 +2216,6 @@
 
             if(logs.length === 0) return showToast('該區間內無資料可匯出', 'error');
 
-            // 依照日期排序 (舊到新，方便 Excel 閱讀)
             logs.sort((a,b) => new Date(a.date) - new Date(b.date));
 
             let ws_data = [];
@@ -2110,10 +2233,8 @@
             }
 
             try {
-                // 使用 SheetJS 產生 Excel
                 const ws = XLSX.utils.aoa_to_sheet(ws_data);
                 
-                // 設定欄寬
                 const wscols = type === 'fuel' ? 
                     [{wch:15}, {wch:15}, {wch:15}, {wch:15}, {wch:15}] : 
                     [{wch:15}, {wch:20}, {wch:20}, {wch:12}, {wch:50}, {wch:15}, {wch:15}, {wch:30}];
