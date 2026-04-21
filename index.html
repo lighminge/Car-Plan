@@ -624,7 +624,7 @@
                         </div>
                         <div>
                             <label class="block text-xs md:text-sm text-slate-400 mb-1.5">加油日期</label>
-                            <input type="date" id="daily-fuel-date" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-white outline-none focus:ring-1 focus:ring-cyan-500">
+                            <input type="date" id="daily-fuel-date" onchange="syncDailyDateFromFuel()" class="w-full bg-slate-900/70 border border-slate-700 rounded-xl p-2.5 md:p-3 text-white outline-none focus:ring-1 focus:ring-cyan-500">
                         </div>
                         <div>
                             <label class="block text-xs md:text-sm text-slate-400 mb-1.5">目前里程數</label>
@@ -739,7 +739,7 @@
 
         // --- 本地端極速快取機制 ---
         let useLocalMode = false;
-        const CACHE_KEY = 'dispatch_system_cache_v17'; 
+        const CACHE_KEY = 'dispatch_system_cache_v18'; // 更新版號
         
         const loadLocalCache = () => {
             try {
@@ -1860,7 +1860,6 @@
             const dispDate = document.getElementById('disp-date').value;
             const selectedVehicleId = document.getElementById('disp-vehicle').value;
 
-            // --- 防呆：檢查同一台車同時段是否衝突 ---
             const numSh = parseInt(sh, 10);
             let numEh = parseInt(eh, 10);
             if (numEh <= numSh) numEh += 24;
@@ -1873,7 +1872,6 @@
                 let existingEh = parseInt(d.endTime.split(':')[0], 10);
                 if (existingEh <= existingSh) existingEh += 24;
 
-                // 判斷重疊：Max(StartA, StartB) < Min(EndA, EndB)
                 return Math.max(numSh, existingSh) < Math.min(numEh, existingEh);
             });
 
@@ -1970,7 +1968,6 @@
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dayDisps = state.dispatches.filter(d => d.date === dateStr);
                 
-                // 依照開始時間由小到大排序 (早 -> 晚)
                 dayDisps.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
                 
                 const isToday = dateStr === todayStr;
@@ -2022,6 +2019,14 @@
 
         // --- 單日派車單 (日曆模式與卡片顯示) Logic ---
         
+        window.syncDailyDateFromFuel = () => {
+            const fuelDate = document.getElementById('daily-fuel-date').value;
+            if (fuelDate) {
+                document.getElementById('daily-date').value = fuelDate;
+                window.renderDailyView();
+            }
+        };
+
         window.dailyFuelVehicleChange = () => {
             const vid = document.getElementById('daily-fuel-vehicle').value;
             const v = state.vehicles.find(x => x.id === vid);
@@ -2045,6 +2050,12 @@
             if(!cost || cost <= 0) return showToast('請填寫正確的費用！', 'error');
             if(!liters) return showToast('請填寫公升數！', 'error');
 
+            // --- 防呆：檢查當日是否有該車輛派車紀錄 ---
+            const hasDispatch = state.dispatches.some(d => d.vehicleId === vid && d.date === date);
+            if (!hasDispatch) {
+                return showToast('警告：該車輛在選取的日期無派車紀錄，無法新增加油資料！', 'error');
+            }
+
             const logData = {
                 id: Date.now().toString(),
                 date, cost, preMileage: inputMil, type: v.fuelType || '柴油', liters
@@ -2058,7 +2069,7 @@
             v.fuelLogs.push(logData);
 
             window.saveToDb('vehicles', v);
-            showToast('加油紀錄已同步至車輛資料！');
+            showToast('加油紀錄已成功同步至車輛資料庫！');
             
             document.getElementById('daily-fuel-cost').value = '';
             document.getElementById('daily-fuel-lit').value = '';
@@ -2093,7 +2104,7 @@
 
             // 更新加油表單的預設日期與車輛選單
             const fuelDateInput = document.getElementById('daily-fuel-date');
-            if (fuelDateInput) fuelDateInput.value = targetDate;
+            if (fuelDateInput && fuelDateInput.value !== targetDate) fuelDateInput.value = targetDate;
             
             const fuelVehSel = document.getElementById('daily-fuel-vehicle');
             if (fuelVehSel && fuelVehSel.options.length !== state.vehicles.length) {
@@ -2106,17 +2117,46 @@
             const dayDisps = state.dispatches.filter(d => d.date === targetDate);
             dayDisps.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const isToday = targetDate === todayStr;
+            const currentHourNum = today.getHours();
+
             const html = dayDisps.map(d => {
                 const drv = state.drivers.find(x => x.id === d.driverId) || {};
                 const veh = state.vehicles.find(x => x.id === d.vehicleId) || {};
                 const ven = state.vendors.find(x => x.id === d.vendorId) || {};
                 
+                let statusBadge = '';
+                let highlightClass = 'border-transparent opacity-100';
+
+                // ✨ 智慧時間狀態標示邏輯
+                if (isToday) {
+                    const sh = parseInt(d.startTime.split(':')[0], 10);
+                    let eh = parseInt(d.endTime.split(':')[0], 10);
+                    if (eh <= sh) eh += 24;
+
+                    if (currentHourNum >= sh && currentHourNum < eh) {
+                        statusBadge = `<span class="ml-2 mt-2 md:mt-0 bg-emerald-500/20 text-emerald-400 text-xs px-2.5 py-1 rounded-full border border-emerald-500/50 animate-pulse print:hidden whitespace-nowrap">📍 進行中</span>`;
+                        highlightClass = 'border-emerald-500/70 shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-slate-800/90 transform scale-[1.01] z-10';
+                    } else if (currentHourNum < sh) {
+                        statusBadge = `<span class="ml-2 mt-2 md:mt-0 bg-amber-500/20 text-amber-400 text-xs px-2.5 py-1 rounded-full border border-amber-500/50 print:hidden whitespace-nowrap">⏳ 即將派車</span>`;
+                        highlightClass = 'border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]';
+                    } else {
+                        statusBadge = `<span class="ml-2 mt-2 md:mt-0 bg-slate-700 text-slate-400 text-xs px-2.5 py-1 rounded-full border border-slate-600 print:hidden whitespace-nowrap">✓ 已結束</span>`;
+                        highlightClass = 'border-transparent opacity-60 hover:opacity-100';
+                    }
+                }
+
                 return `
-                    <div class="flex relative bg-slate-800 shadow-lg rounded-2xl mb-4 overflow-hidden print-card">
+                    <div class="flex relative bg-slate-800 shadow-lg rounded-2xl mb-4 overflow-hidden print-card border-2 transition-all duration-300 ${highlightClass}">
                         <div class="w-3 ${d.color} shrink-0 print-bg-gray"></div>
                         <div class="p-5 flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div class="flex items-center md:w-1/5">
-                                <span class="bg-slate-900 px-4 py-2 rounded-xl text-cyan-400 font-bold text-lg tracking-wider print-text-black print-border-black print:border print:bg-white">${d.startTime} - ${d.endTime}</span>
+                            <div class="flex flex-col md:w-1/4 items-start">
+                                <div class="flex flex-wrap items-center">
+                                    <span class="bg-slate-900 px-4 py-2 rounded-xl text-cyan-400 font-bold text-lg tracking-wider print-text-black print-border-black print:border print:bg-white">${d.startTime} - ${d.endTime}</span>
+                                    ${statusBadge}
+                                </div>
                             </div>
                             <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div class="flex flex-col">
